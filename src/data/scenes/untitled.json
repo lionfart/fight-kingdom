@@ -44909,7 +44909,7 @@
                 0.2
             ],
             "resource_id": "6f26c180-5c4c-45fe-ae1e-8a47c01e3dc8",
-            "name": "taiko+drum+3d+model",
+            "name": "taiko-drum-3d-model",
             "components": {
                 "render": {
                     "enabled": true,
@@ -44987,7 +44987,7 @@
                 0.3
             ],
             "resource_id": "76d3a96d-8bf9-4563-a3ab-02e2c50ee23c",
-            "name": "medieval+spear+display+3d+model",
+            "name": "medieval-spear-display-3d-model",
             "components": {
                 "render": {
                     "enabled": true,
@@ -45280,7 +45280,7 @@
             }
         },
         "3626b059-47dd-42ba-8729-89ca755f25f2": {
-            "name": "medieval+spear+display+3d+model",
+            "name": "medieval-spear-display-3d-model",
             "tags": [],
             "enabled": true,
             "resource_id": "3626b059-47dd-42ba-8729-89ca755f25f2",

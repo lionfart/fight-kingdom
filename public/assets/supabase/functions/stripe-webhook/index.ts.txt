@@ -1,0 +1,78 @@
+// Supabase Edge Function: stripe-webhook
+// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+// Also needs service role: use SUPABASE_SERVICE_ROLE_KEY (auto in hosted Edge Functions)
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@14?target=deno';
+
+const SKU = 'character_pass';
+
+Deno.serve(async (req) => {
+  const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+
+  if (!stripeKey || !webhookSecret || !serviceKey || !supabaseUrl) {
+    return new Response(JSON.stringify({ error: 'misconfigured' }), { status: 500 });
+  }
+
+  const stripe = new Stripe(stripeKey, {
+    apiVersion: '2023-10-16',
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+
+  const signature = req.headers.get('stripe-signature');
+  if (!signature) {
+    return new Response(JSON.stringify({ error: 'missing_signature' }), { status: 400 });
+  }
+
+  const body = await req.text();
+  let event;
+
+  try {
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+  } catch (err) {
+    console.error('[stripe-webhook] signature', err);
+    return new Response(JSON.stringify({ error: 'invalid_signature' }), { status: 400 });
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const userId = session.client_reference_id || session.metadata?.user_id;
+    const sku = session.metadata?.sku || SKU;
+    const sessionId = session.id;
+
+    if (!userId) {
+      console.error('[stripe-webhook] missing user_id on session', sessionId);
+      return new Response(JSON.stringify({ error: 'missing_user' }), { status: 400 });
+    }
+
+    if (session.payment_status && session.payment_status !== 'paid') {
+      console.warn('[stripe-webhook] not paid yet', sessionId, session.payment_status);
+      return new Response(JSON.stringify({ received: true, skipped: 'not_paid' }), { status: 200 });
+    }
+
+    const admin = createClient(supabaseUrl, serviceKey);
+
+    const { error } = await admin.from('player_entitlements').upsert(
+      {
+        user_id: userId,
+        sku,
+        source: 'stripe',
+        stripe_session_id: sessionId,
+        granted_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,sku' }
+    );
+
+    if (error) {
+      console.error('[stripe-webhook] upsert', error);
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+
+    console.log('[stripe-webhook] granted', sku, 'to', userId);
+  }
+
+  return new Response(JSON.stringify({ received: true }), { status: 200 });
+});

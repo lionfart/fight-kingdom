@@ -1,0 +1,42 @@
+# Character Pass Phase 2 — deploy Edge Functions
+# Prerequisites: npx supabase login, secrets set (see SETUP_PROGRESS.md)
+
+$ErrorActionPreference = "Stop"
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $Root
+
+Write-Host "=== Tap Kingdom — Character Pass deploy ===" -ForegroundColor Cyan
+Write-Host "Project: nyqjjsuzxwxufauqoqvw"
+Write-Host ""
+
+Write-Host "Checking Supabase CLI login..." -ForegroundColor Yellow
+npx supabase projects list 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Not logged in. Run: npx supabase login" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Linking project (idempotent)..." -ForegroundColor Yellow
+npx supabase link --project-ref nyqjjsuzxwxufauqoqvw
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Deploying get-entitlements..." -ForegroundColor Yellow
+npx supabase functions deploy get-entitlements
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Deploying create-checkout..." -ForegroundColor Yellow
+npx supabase functions deploy create-checkout
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "Deploying stripe-webhook (--no-verify-jwt)..." -ForegroundColor Yellow
+npx supabase functions deploy stripe-webhook --no-verify-jwt
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host ""
+Write-Host "Done. Next steps:" -ForegroundColor Green
+Write-Host "  1. Stripe Dashboard (Test) -> Webhooks -> Add endpoint"
+Write-Host "     URL: https://nyqjjsuzxwxufauqoqvw.supabase.co/functions/v1/stripe-webhook"
+Write-Host "     Event: checkout.session.completed"
+Write-Host "  2. Copy whsec_... -> Supabase Secret STRIPE_WEBHOOK_SECRET"
+Write-Host "  3. Redeploy stripe-webhook if you added the webhook secret after first deploy"
+Write-Host "  4. In-game: bind Email -> Profile -> 解鎖全部武將 -> test card 4242..."

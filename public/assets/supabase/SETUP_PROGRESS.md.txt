@@ -1,0 +1,188 @@
+# Character Pass／Stripe 進度存檔
+
+最後更新：2026-07-19  
+用途：中斷後可從這裡接續，不必重查對話。
+
+---
+
+## 目標（已定案）
+
+- 商品：**單一 Character Pass**（一次解鎖 T1–T3 付費武將）
+- 免費路徑：軍餉 + 等級慢解鎖（並行）
+- 黃巾兄弟：Rogue 通關，**不進 Pass**
+- 平台：Web + Stripe Checkout + Supabase entitlements
+- 定價目標：USD **$6.99** one-time
+
+### 角色 Tier（Phase 0 已寫進 config）
+
+| Tier | 角色 | cost / Lv |
+|------|------|-----------|
+| T0 免費 | guanyu, zhouyu | 0 / 1 |
+| T1 | caocao 1200/3；zhangfei 1800/4 | |
+| T2 | zhangliao 4500/6；liubei 5000/7；sunquan 5500/8 | |
+| T3 | lubu 10000/11；zhangjiao 12000/13；diaochan 15000/15 | |
+| Rogue | zhangbao | 通關解鎖 |
+
+---
+
+## 各 Phase 狀態
+
+| Phase | 內容 | 狀態 |
+|-------|------|------|
+| **0** | 經濟調參（unlockTier／cost／Arena 發幣／DEV 預設） | **完成（程式）** |
+| **1** | entitlements 表 + client 合併解鎖 + DEV 覆寫 | **完成（程式）**；SQL／掛 script 需你確認 |
+| **2** | Stripe Checkout + webhook + 購買 CTA | **程式已寫**；**Secrets／Deploy／Webhook 未完成** |
+| **3** | 條款、打磨 | 未開始 |
+
+---
+
+## 已完成的程式／檔案
+
+### Client（PlayCanvas）
+
+- `brawlerConfig.js` — `unlockTier` + 新 cost/level；`isCoveredByCharacterPass`
+- `scoreManager.js` — Arena 發幣約 45%（23+勝27+殺×4 幣等）
+- `progressionManager.js` — 預設只解鎖關羽／周瑜；`isUnlocked` 合併 Pass
+- `entitlementManager.js` — refresh／setDevOverride／startCheckout／回跳輪詢
+- `characterSelect.js` — PASS 徽章、Profile「解鎖全部武將」CTA
+- `authManager.js` — `getRedirectBaseUrl()`
+- `uiTheme.js` — PASS 樣式
+
+### Supabase（repo 內，待你 deploy）
+
+- `supabase/migrations/001_player_entitlements.sql`
+- `supabase/functions/get-entitlements/index.ts`
+- `supabase/functions/create-checkout/index.ts`
+- `supabase/functions/stripe-webhook/index.ts`
+- `supabase/README.md` — 操作說明
+
+### 計劃文件
+
+- Cursor plan：`stripe_character_pass_*.plan.md`（本機 `.cursor/plans`）
+
+---
+
+## 你已驗證過的
+
+- [x] DEV：`pc.app.entitlementManager.setDevOverride(true)` → 看到 PASS、T1–T3 可玩
+- [ ] SQL migration 跑完 + 手動 insert + `refresh()`（若尚未做完請補）
+- [ ] PlayCanvas entity 已掛 `entitlementManager`（DEV 能過通常已掛）
+
+### Console 備註
+
+- 要用 **`pc.app`**，不是 `app`
+- 清 DEV 覆寫：`pc.app.entitlementManager.setDevOverride(null)`
+
+---
+
+## Stripe（你已建好）
+
+### Test（開發請用這組）
+
+| 項目 | 值 |
+|------|-----|
+| Price ID | `price_1TucdGIe5ZqA9rXhhXYsavB1` |
+| 金額 | $6.99 USD，`one_time`，`livemode: false` |
+| Product | `prod_UuRW5JTzwoYRPy` |
+| Secret key | **只放在 Supabase Secrets**，不要寫進 git／此檔正文以外的聊天 |
+
+（你曾貼過 test `sk_test_...`；接 Secrets 即可。正式上線前再換 Live。）
+
+### Live（之後上線再換，勿與 Test 混用）
+
+| 項目 | 值 |
+|------|-----|
+| Price ID | `price_1TucP4QpBkz25iqpURrXT5PG` |
+| 金額 | $6.99 one_time，`livemode: true` |
+
+---
+
+## 下次接著做（Phase 2 部署）
+
+### 1. Supabase Secrets
+
+Dashboard：**左側 Edge Functions（或 Functions）→ Secrets 分頁**  
+（不在 Project Settings 齒輪裡）
+
+直連（REF 換成你的）：
+
+```text
+https://supabase.com/dashboard/project/<PROJECT_REF>/functions/secrets
+```
+
+你的專案 URL 若是 `nyqjjsuzxwxufauqoqvw.supabase.co`，REF 多半是：
+
+```text
+nyqjjsuzxwxufauqoqvw
+```
+
+新增：
+
+```text
+STRIPE_SECRET_KEY=sk_test_...
+CHARACTER_PASS_PRICE_ID=price_1TucdGIe5ZqA9rXhhXYsavB1
+```
+
+`STRIPE_WEBHOOK_SECRET` 等 webhook 建好再加。
+
+找不到 Secrets UI 時用 CLI：
+
+```bash
+npx supabase login
+npx supabase link --project-ref nyqjjsuzxwxufauqoqvw
+npx supabase secrets set STRIPE_SECRET_KEY=sk_test_...
+npx supabase secrets set CHARACTER_PASS_PRICE_ID=price_1TucdGIe5ZqA9rXhhXYsavB1
+```
+
+### 2. Deploy Edge Functions
+
+在含 `supabase/` 的目錄：
+
+```bash
+npx supabase functions deploy get-entitlements
+npx supabase functions deploy create-checkout
+npx supabase functions deploy stripe-webhook --no-verify-jwt
+```
+
+`stripe-webhook` **必須** `--no-verify-jwt`（Stripe 不帶 Supabase JWT）。
+
+### 3. Stripe Webhook（Test mode）
+
+1. Stripe Dashboard（Test）→ Developers → Webhooks → Add endpoint  
+2. URL：`https://<PROJECT_REF>.supabase.co/functions/v1/stripe-webhook`  
+3. Event：`checkout.session.completed`  
+4. 複製 Signing secret `whsec_...` → Supabase Secret `STRIPE_WEBHOOK_SECRET`  
+5. 可再 deploy 一次 `stripe-webhook`
+
+### 4. 遊戲內測試
+
+1. 綁定 Email（Guest 不能結帳）  
+2. Profile → **解鎖全部武將** → Stripe Checkout  
+3. 測試卡：`4242 4242 4242 4242`  
+4. 回跳後頂欄 PASS、T1–T3 可出陣  
+
+---
+
+## 信任模型（提醒）
+
+- 軍餉解鎖：localStorage + `player_saves`（client）  
+- Pass：`player_entitlements`（webhook／service role 寫入）為準  
+- Client 的 Pass 只是 overlay／hint，可被 DEV 覆寫測試，正式以 server 為準  
+
+---
+
+## 刻意未做
+
+- 單角色 SKU、軍餉 IAP、訂閱  
+- iOS／Android Store IAP  
+- Phase 3 條款／退款文案打磨  
+
+---
+
+## 接續時跟 AI 說一句即可
+
+> 繼續 Character Pass Phase 2：Secrets 已設／未設，幫我從 deploy／webhook／遊戲測試接下去。
+
+或：
+
+> 照 `supabase/SETUP_PROGRESS.md` 繼續。

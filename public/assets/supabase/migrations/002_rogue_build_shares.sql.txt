@@ -1,0 +1,62 @@
+-- Rogue 構築分享與排行榜擴充
+-- 執行後需在 Supabase SQL Editor 或 supabase db push 部署
+
+create table if not exists public.rogue_build_shares (
+    id uuid primary key default gen_random_uuid(),
+    short_code text not null unique,
+    user_id uuid references auth.users (id) on delete set null,
+    display_name text,
+    snapshot jsonb not null,
+    wave int not null default 0,
+    brawler text,
+    endless boolean not null default false,
+    created_at timestamptz not null default now()
+);
+
+create index if not exists rogue_build_shares_wave_idx
+    on public.rogue_build_shares (wave desc, created_at desc);
+
+alter table public.rogue_build_shares enable row level security;
+
+create policy "rogue_build_shares_select_public"
+    on public.rogue_build_shares for select
+    using (true);
+
+create policy "rogue_build_shares_insert_own"
+    on public.rogue_build_shares for insert
+    with check (auth.uid() = user_id);
+
+-- 排行榜（含構築 short_code）
+create or replace function public.get_rogue_leaderboard(row_limit int default 10)
+returns table (
+    display_name text,
+    rogue_best_wave int,
+    rogue_best_brawler text,
+    rogue_best_at timestamptz,
+    build_short_code text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+    select
+        ps.display_name,
+        ps.rogue_best_wave,
+        ps.rogue_best_brawler,
+        ps.rogue_best_at,
+        (
+            select rbs.short_code
+            from public.rogue_build_shares rbs
+            where rbs.user_id = ps.user_id
+              and rbs.wave = ps.rogue_best_wave
+            order by rbs.created_at desc
+            limit 1
+        ) as build_short_code
+    from public.player_saves ps
+    where ps.rogue_best_wave > 0
+    order by ps.rogue_best_wave desc, ps.rogue_best_at asc nulls last
+    limit greatest(1, least(coalesce(row_limit, 10), 50));
+$$;
+
+grant execute on function public.get_rogue_leaderboard(int) to anon, authenticated;

@@ -1,0 +1,83 @@
+-- Character Pass promo codes (one-time redeem)
+-- Run in Supabase SQL Editor or: supabase db push
+
+create table if not exists public.promo_codes (
+  code text primary key,
+  sku text not null default 'character_pass',
+  redeemed_by uuid references auth.users (id) on delete set null,
+  redeemed_at timestamptz,
+  expires_at timestamptz,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists promo_codes_unredeemed_idx
+  on public.promo_codes (created_at desc)
+  where redeemed_by is null;
+
+alter table public.promo_codes enable row level security;
+
+-- No policies for authenticated: clients cannot read or guess codes.
+-- Service role and security definer functions bypass RLS.
+
+create or replace function public.redeem_promo_code(p_code text, p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_code text;
+  v_row public.promo_codes%rowtype;
+  v_owned boolean;
+begin
+  v_code := upper(trim(coalesce(p_code, '')));
+  if length(v_code) < 4 then
+    return jsonb_build_object('success', false, 'error', 'invalid_code');
+  end if;
+
+  select * into v_row
+  from public.promo_codes
+  where code = v_code
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'invalid_code');
+  end if;
+
+  if v_row.redeemed_by is not null then
+    return jsonb_build_object('success', false, 'error', 'already_redeemed');
+  end if;
+
+  if v_row.expires_at is not null and v_row.expires_at < now() then
+    return jsonb_build_object('success', false, 'error', 'expired');
+  end if;
+
+  select exists (
+    select 1 from public.player_entitlements
+    where user_id = p_user_id and sku = v_row.sku
+  ) into v_owned;
+
+  if v_owned then
+    return jsonb_build_object('success', false, 'error', 'already_owned');
+  end if;
+
+  update public.promo_codes
+  set redeemed_by = p_user_id,
+      redeemed_at = now()
+  where code = v_code;
+
+  insert into public.player_entitlements (user_id, sku, source)
+  values (p_user_id, v_row.sku, 'promo_code')
+  on conflict (user_id, sku) do nothing;
+
+  return jsonb_build_object(
+    'success', true,
+    'sku', v_row.sku,
+    'characterPass', v_row.sku = 'character_pass'
+  );
+end;
+$$;
+
+revoke all on function public.redeem_promo_code(text, uuid) from public;
+grant execute on function public.redeem_promo_code(text, uuid) to service_role;

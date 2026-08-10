@@ -1,0 +1,107 @@
+// Supabase Edge Function: redeem-code
+// Redeem a one-time promo code for Character Pass.
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_code: '兌換碼無效。',
+  already_redeemed: '此兌換碼已被使用。',
+  expired: '兌換碼已過期。',
+  already_owned: '你已擁有武將通行證。',
+  email_required: '請先綁定 Email 再兌換。',
+  missing_code: '請輸入兌換碼。',
+};
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return json({ error: 'missing_authorization' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      return json({ error: 'invalid_session' }, 401);
+    }
+
+    const user = userData.user;
+    const isAnonymous = !user.email_confirmed_at && !user.email && !user.phone;
+    if (isAnonymous || !user.email) {
+      return json({
+        error: 'email_required',
+        message: ERROR_MESSAGES.email_required,
+      }, 403);
+    }
+
+    let body: { code?: string } = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const code = (body.code || '').trim();
+    if (!code) {
+      return json({
+        error: 'missing_code',
+        message: ERROR_MESSAGES.missing_code,
+      }, 400);
+    }
+
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    if (!serviceKey || !supabaseUrl) {
+      return json({ error: 'misconfigured' }, 500);
+    }
+
+    const admin = createClient(supabaseUrl, serviceKey);
+    const { data, error } = await admin.rpc('redeem_promo_code', {
+      p_code: code,
+      p_user_id: user.id,
+    });
+
+    if (error) {
+      console.error('[redeem-code] rpc', error);
+      return json({ error: error.message }, 500);
+    }
+
+    const result = data as { success?: boolean; error?: string; characterPass?: boolean };
+    if (!result?.success) {
+      const errKey = result?.error || 'invalid_code';
+      return json({
+        error: errKey,
+        message: ERROR_MESSAGES[errKey] || ERROR_MESSAGES.invalid_code,
+      }, 400);
+    }
+
+    return json({
+      characterPass: !!result.characterPass,
+      sku: result.sku || 'character_pass',
+    });
+  } catch (e) {
+    console.error('[redeem-code]', e);
+    return json({ error: String(e?.message || e) }, 500);
+  }
+});
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}

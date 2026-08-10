@@ -1,0 +1,428 @@
+# Tap Kingdom — 英文支援規劃
+
+> 探索結論與實作藍圖：如何讓遊戲支援英文（第二語系）。  
+> 現況基準：繁中優先、文案硬編於 JS；尚無 i18n 層。  
+> 狀態：規劃定稿｜本文件**不改 runtime**；實作另開任務。  
+> 相關：`DESIGN.md` Voice Guide、`宣傳文案底稿.md`、`promoConfig.js`
+
+---
+
+## 1. 目標與範圍
+
+### 目標
+
+- 遊戲內玩家可見 UI／內容可切換 **繁體中文（zh-TW）** 與 **英文（en）**。
+- 在設定面板提供語言切換，並以 `localStorage` 記住選擇。
+- 預設維持 **zh-TW**（不因瀏覽器語系自動覆寫，避免現有中文玩家被意外切走）。
+
+### 本階段範圍
+
+| 做 | 不做 |
+|----|------|
+| 盤點現況、鎖定架構、分階段遷移、風險與驗證 | 本文件階段不改任何 JS／場景 |
+| 為日後實作定義 API、key 慣例、優先順序 | 不引入重型 i18n 框架 |
+| 定義英文語氣準則（第二 locale） | 不把中文 Voice Guide 改成英文優先 |
+
+### 成功標準（日後實作驗收）
+
+1. 設定可切 `zh-TW` ↔ `en`，重開仍保留。
+2. Hub、教學、Rogue 卡牌、對戰 HUD／結算、Loading／Promo 主要字串依語系顯示。
+3. 邏輯不以中文原文判斷勝負／狀態（改 enum／key）。
+4. 切語系後開啟中的 DOM UI 能重刷或提示重開相關畫面。
+
+---
+
+## 2. 現況盤點
+
+### 2.1 結論
+
+遊戲是 **Traditional Chinese–first**：幾乎所有玩家可見文案硬編在 JS（config 物件 + DOM 字串 builder）。**沒有** `i18n` / `locale` / `setLanguage` API，也沒有英文 string pack。
+
+[`DESIGN.md`](DESIGN.md) Voice Guide 目前規範：主語言繁中、禁止完整英文句當主標／英文詞綴名。英文支援應是 **第二 locale pack**，不是改寫中文語氣。
+
+### 2.2 文案如何渲染
+
+```
+Configs（資料）     → brawlerConfig / wordConfig / tutorialConfig / promoConfig
+UI builders（DOM）  → characterSelect / rogueDirector / gameSettings / scoreManager
+                     / gameModeManager / customLoadingScreen / tutorial・promo directors
+PlayCanvas Element  → playerController.deathMessage（少數）
+Docs / voice        → DESIGN.md、宣傳文案底稿.md（非 runtime）
+i18n 層             → （缺失）
+```
+
+- **主路徑**：`document.createElement` / `innerHTML` / `textContent` 在腳本內組字。
+- **次路徑**：PlayCanvas `element.text`（死亡／復活／觀戰等）。
+- **場景 Entity**：結構為主，**不是**文案主庫。
+
+### 2.3 高優先檔案（玩家可見）
+
+| 檔案 | 角色 | 粗估中文字串密度 |
+|------|------|------------------|
+| `wordSystem.js` | 動態卡牌／效果描述模板 | 極高 |
+| `rogueDirector.js` | Rogue HUD、banner、詞綴、波次、選卡 UI | 極高 |
+| `characterSelect.js` | Hub、模式、解鎖、個人檔、登入相關 UI | 高 |
+| `wordConfig.js` | 卡名、`cardDesc`、學派 label、tier desc | 高 |
+| `tutorialConfig.js` | 教學步驟、tips、PvP briefing | 中高 |
+| `scoreManager.js` | 目標列、連殺、結算、bot 暱稱 | 中高 |
+| `brawlerConfig.js` | `select.zh`、title、role、super.desc、敵顯示名 | 中 |
+| `tutorialDirector.js` | 教學 runtime UI | 中 |
+| `gameModeManager.js` | 模式 intro／announcer | 中 |
+| `gameSettings.js` | 設定面板 | 中 |
+| `customLoadingScreen.js` | Loading tips | 低～中 |
+| `entitlementManager.js` | Pass／兌換錯誤 | 低 |
+| `promoConfig.js` / `promoDirector.js` | 宣傳 overlay／CTA | 低 |
+| `rogueBuildShare.js` | 組建分享預覽 | 低 |
+| `playerController.js` | 死亡／復活／觀戰 Element 字 | 低 |
+
+低 i18n 價值（註解／editor attribute `title`／內部 log）：多數系統腳本、`supabase/*.md`、`rogue-card-ideas.md` 等。**不翻譯**。
+
+### 2.4 既有「準 i18n」痕跡
+
+- `BrawlerConfig.getDisplayZh`、`displayZh`、`select.zh` — 僅中文顯示名，無 `en`。
+- 多處複製 lookup：`scoreManager` / `rogueDirector` / `botController` / `characterSelect` / `wordSystem` / `rogueBuildShare`。
+- 品牌與模式碼已混用英文：`TAP KINGDOM`、`3V3`、`FFA`、`ROGUE`；戰鬥飄字有 `MISS`。
+- `gameSettings` 已有 `localStorage`（畫質 `tk_graphics_quality`）可對齊語言 key。
+- **風險範例**：`scoreManager` 用 `resultText.indexOf('勝利'|'完成'|'第一名')` 判斷勝場 — 英文化後會壞，必須改 enum。
+
+### 2.5 字串量級（粗估）
+
+| 類別 | 量級 | 主要來源 |
+|------|------|----------|
+| Rogue 卡名／描述／精煉文案 | 高（約 250–400） | `wordConfig` + `wordSystem` |
+| Hub／按鈕／解鎖／Pass | 高（約 120–180） | `characterSelect` |
+| Rogue HUD／波次／詞綴／羈絆 | 高（約 100–150） | `rogueDirector` |
+| 教學 + tips + briefing | 中（約 80–100） | `tutorialConfig` |
+| 武將名／稱號／技能敘述 | 中（約 60–90） | `brawlerConfig` |
+| 對戰 HUD／連殺／結算 | 中（約 60–80） | `scoreManager`、`gameModeManager` |
+| 設定／Loading／錯誤 | 低～中（約 40–70） | settings、splash、entitlements |
+| Promo／品牌／CTA | 低（約 20–40） | `promoConfig` |
+| 微狀態（`破`、MISS、Lv） | 極少 | combat／damage |
+
+**合計玩家可見約 700–1000 條**（不含註解與 editor title）。`wordSystem` 以**模板 key + 插值**計，勿逐字面膨脹。
+
+---
+
+## 3. 架構設計
+
+### 3.1 方針
+
+輕量全域模組，貼合現有 `window.*` + DOM 風格；**不做**完整 i18n 框架、**不以**場景 Text Element 當主文案庫。
+
+```mermaid
+flowchart LR
+  settings["gameSettings Language"] --> i18n["i18n.js TKI18n"]
+  storage["localStorage tk_lang"] --> i18n
+  packs["locales zh-TW / en"] --> i18n
+  i18n --> configs["brawler / word / tutorial / promo"]
+  i18n --> ui["characterSelect / rogue / score / etc"]
+```
+
+### 3.2 新增檔案
+
+| 檔案 | 職責 |
+|------|------|
+| `i18n.js` | `window.TKI18n`：語系狀態、`t()`、事件、storage |
+| `locales/zh-TW.js` | 繁中 pack（可由現有字串抽出） |
+| `locales/en.js` | 英文 pack |
+
+PlayCanvas：兩 locale 與 `i18n.js` 須在 **UI／config 消費端腳本之前** 載入（script 載入順序）。
+
+### 3.3 API（鎖定）
+
+```js
+// i18n.js（示意）
+window.TKI18n = {
+  STORAGE_KEY: 'tk_lang',
+  DEFAULT: 'zh-TW',
+  SUPPORTED: ['zh-TW', 'en'],
+
+  getLang: function () { /* read memory / localStorage */ },
+  setLang: function (lang) {
+    /* validate → persist → fire 'tk:langChanged' */
+  },
+  t: function (key, vars) {
+    /* lookup current pack → fallback zh-TW → fallback key */
+    /* vars: { n: 3, name: '...' } → replace {n} {name} */
+  },
+  // 選用：取 config 上的雙語欄位
+  pick: function (obj) {
+    /* obj 為 string → 原樣；為 { 'zh-TW': '...', en: '...' } 或 { zh, en } → 依語系 */
+  }
+};
+```
+
+- Storage key：`tk_lang`，值：`zh-TW` | `en`。
+- 缺 key：回退 `zh-TW`，再缺則回傳 key 本身（開發期易發現漏翻）。
+- 插值語法：統一 `{name}` 風格（與現有模板數字描述對齊）。
+
+### 3.4 Key 命名慣例
+
+```
+領域.實體.欄位[.變體]
+
+hub.startRogue
+hub.unlock.confirm
+settings.language
+settings.quality.low
+brawler.zhouyu.name
+brawler.zhouyu.title
+brawler.zhouyu.role
+brawler.zhouyu.desc
+brawler.zhouyu.super
+word.ti_iron_wall_r.name
+word.ti_iron_wall_r.desc
+word.school.shu.finisher
+rogue.banner.allyDown
+rogue.hud.objective.clear
+tutorial.gate.title
+promo.overlay.hook
+announcer.mode.ffa
+combat.death.downed
+error.pass.redeemFailed
+```
+
+動態描述（`wordSystem`）：優先 **模板 key**，例如 `word.desc.burnSplash` → `'Splash {pct}% to nearby foes on hit.'`，數字由 runtime 填入。
+
+### 3.5 Config 遷移策略
+
+**原則：新字串走 key；存量分兩種過渡。**
+
+| 類型 | 建議 | 說明 |
+|------|------|------|
+| 武將顯示名（量少、重複 lookup 多） | 先加 `en` 欄位 + 統一 `getDisplayName` | 例如 `select: { zh, en, titleZh, titleEn, ... }` 或 `select: { name: { zh, en }, ... }`；`getDisplayZh` 改包一層或 deprecate |
+| 卡牌／教學／promo（資料純） | 抽成 locale key，或欄位改 `{ zh, en }` + `TKI18n.pick` | `tutorialConfig` / `promoConfig` 最適合先做 |
+| DOM 硬編按鈕／toast | 直接 `t('hub.xxx')` | `characterSelect`、`gameSettings`、`rogueDirector` |
+
+統一顯示名入口（鎖定目標）：
+
+```js
+BrawlerConfig.getDisplayName = function (bType) {
+  // 依 TKI18n.getLang() 回傳 zh 或 en；無 en 時回退 zh
+};
+```
+
+其餘腳本逐步改呼叫 `getDisplayName`，刪除複製貼上的 `getDisplayZh` 區塊。
+
+### 3.6 設定面板
+
+在 [`gameSettings.js`](gameSettings.js) 加一列 **語言 / Language**：
+
+- 顯示：`繁中` / `English`（或 `中文` / `EN`）。
+- 變更 → `TKI18n.setLang` → 廣播 `tk:langChanged`。
+- Hub／設定面板本身 listen 後重繪文字；局內 HUD 能重刷的重刷，否則下次開啟該 overlay 再生效（文件化行為）。
+
+### 3.7 邏輯與文案分離（必須）
+
+| 現況問題 | 改法 |
+|----------|------|
+| `scoreManager`：`resultText.indexOf('勝利')` 等 | 結算用 `result: 'win' \| 'lose' \| 'draw'`，顯示再 `t('end.win')` |
+| 以中文比對 banner／按鈕文字 | 用 data-attribute / 內部 id |
+| 狀態字「陣亡」「觀戰」驅動流程 | 流程用 enum；Element 只負責顯示 |
+
+### 3.8 不翻譯
+
+- PlayCanvas editor `attributes.add(..., title: '...')`
+- `console.log` / `warn` / 開發診斷字串
+- 內部 id、卡牌 id、brawler type key（`zhouyu`、`ti_iron_wall_r`）
+- 純技術 markdown／idea 文件（除非另行要求）
+
+---
+
+## 4. 遷移策略與優先順序
+
+實作時依 Phase 推進；每 Phase 結束應可玩、可切語系（該範圍內），並回歸中文無回歸。
+
+### Phase A — 基礎設施 + Settings + Hub 殼層
+
+**檔案：** `i18n.js`、`locales/zh-TW.js`、`locales/en.js`、`gameSettings.js`、`characterSelect.js`（殼層按鈕／模式名／通用 dialog）
+
+**產出：**
+
+- 可切語系並持久化
+- Hub 主按鈕、模式標籤、通用確認／取消、設定面板標籤英文化
+
+**驗收：** 切 EN 後 Hub／設定主要可見字為英文；切回繁中與現況一致。
+
+### Phase B — Tutorial / Loading / Promo
+
+**檔案：** `tutorialConfig.js`、`tutorialDirector.js`、`customLoadingScreen.js`、`promoConfig.js`、`promoDirector.js`
+
+**產出：**
+
+- 教學 gate／步驟／tips／briefing 雙語
+- Loading tips 雙語
+- Promo overlay／CTA 雙語（行銷長文仍可留在 `宣傳文案底稿.md`）
+
+**驗收：** 強制教學 run 與 `?promo=` 拍攝流程在 EN 下可讀。
+
+### Phase C — 武將 meta
+
+**檔案：** `brawlerConfig.js` + 所有 `getDisplayZh` 呼叫點
+
+**產出：**
+
+- `getDisplayName` 統一
+- 名稱、稱號、role、`description`、`super.desc`、敵 `displayZh` 有 EN
+- Nameplate／選角卡／kill feed 顯示名跟語系
+
+**驗收：** 選角與場上名牌在 EN 下為英文名（可用拼音／慣用英譯，見 §5）。
+
+### Phase D — Rogue（最大塊／最高風險）
+
+**檔案：** `wordConfig.js`、`wordSystem.js`、`rogueDirector.js`、`rogueBuildShare.js`
+
+**產出：**
+
+- 卡名、學派、收尾、tier desc、動態 `wordSystem` 模板
+- 波次 announce、目標列、banner、toast、詞綴名、招募／選卡 UI
+- 組建分享預覽跟語系
+
+**驗收：** 完整 Rogue 一局（開場選卡 → 波次 → 精煉／招募 → 結算）EN 可玩；數值插值正確；無中文殘留於主路徑。
+
+### Phase E — 對戰 HUD / 結算 / Announcer / 死亡字
+
+**檔案：** `scoreManager.js`、`gameModeManager.js`、`playerController.js`、`combatResolver.js`（如 `破`）、`entitlementManager.js` 錯誤字、其餘零星
+
+**產出：**
+
+- Mission bar、連殺、announcer、結算、死亡／復活／觀戰
+- 修好「用中文判斷勝敗」類邏輯
+- Pass／兌換錯誤訊息
+
+**驗收：** 3V3／FFA／PVE 各跑一局；EN 結算與復活流程正確。
+
+### 建議實作順序總覽
+
+```
+A 基礎設施 + Settings + Hub
+    → B Tutorial / Loading / Promo
+    → C Brawler 顯示名與敘述
+    → D Rogue（word + director）
+    → E 對戰／結算／死亡／錯誤
+```
+
+並行注意：C 可與 B 部分重疊；**D 應在 A 穩定後單獨衝**，避免半套模板。
+
+---
+
+## 5. 英文語氣準則
+
+英文是**第二 locale**，不是機器直譯半文言。對齊品牌：威儀、短句、軍事感；仍是三國題材，不是歐美 neon arcade。
+
+### Do
+
+- 短句、祈使／軍令感：`Claim the realm.` / `Last one standing.` / `Build your army.`
+- 武將名：優先常見英譯或拼音（`Guan Yu`、`Zhou Yu`、`Zhang Fei`）；保持全專案一致表。
+- 詞綴：自製短詞（`Iron Wall`、`Fierce`、`Swift`），**不要**抄其他遊戲專有名詞堆砌感；顯示格式可維持 `Affix·Name` 或 `Affix · Name`。
+- 保留不翻譯：`TAP KINGDOM`、`3V3`、`FFA`、`ROGUE`、`Lv`、必要時 `MISS`。
+- Announcer：可用 Title Case 短語，**避免** Anton italic + 全大寫長句（與 `DESIGN.md` 視覺規範一致；語系切 EN 也不開例外視覺）。
+
+### Don't
+
+- 把半文言逐字翻成生硬文言文英語。
+- 用完整英文行銷長句塞進 HUD／mission bar。
+- 為了「看起來國際」把 Hub 改成英文優先（預設仍 zh-TW）。
+- 邏輯依賴英文或中文原文。
+
+### 與設計文件的關係
+
+- [`DESIGN.md`](DESIGN.md)：保留繁中 Voice；實作時**另加一節 English voice**（本規劃 §5 可直接貼入精簡版）。
+- [`宣傳文案底稿.md`](宣傳文案底稿.md)：另開「英文行銷段」；與 `promoConfig` runtime 字串可共用 key，但 markdown **不是** runtime。
+
+### Announcer 對照示例（實作時可調）
+
+| 模式 | zh-TW | en（建議方向） |
+|------|-------|----------------|
+| default | 稱霸亂世 | Claim the realm |
+| ROGUE | 以戰養戰，成軍破陣！ | Fight. Recruit. Conquer. |
+| 3V3_BOUNTY | 奪寶致勝 | Seize the gems |
+| 3V3_KNOCKOUT | 背水一戰 | No retreat |
+| FFA | 剩者為王 | Last one standing |
+| PVE／教學 | 初陣破敵 | First blood |
+
+---
+
+## 6. 風險與驗證
+
+### 6.1 風險
+
+| 風險 | 影響 | 緩解 |
+|------|------|------|
+| `wordSystem` 動態模板漏翻／插值錯位 | Rogue 描述錯誤或中英混雜 | Phase D 專測表；模板 key 清單化 |
+| 中文原文當邏輯條件 | 英文化後勝負／UI 錯 | Phase E 前先清 `indexOf('勝利')` 等 |
+| 切語系後 DOM 未重繪 | 半中半英 | `tk:langChanged` + 各面板 `refreshLabels()`；文件註明「部分局內需重開 overlay」 |
+| 英文行寬／換行 | 卡牌、Hub、promo 溢位 | EN 略收 letter-spacing；關鍵畫面人工看 overflow |
+| 字形／atlas | 少數字元缺字 | `scoreManager` 等 glyph 字串含拉丁；新符號再補 |
+| 載入順序 | `t()` 在 pack 前呼叫 | 明確 script order；缺 pack 時 fallback |
+| 翻譯量與一致性 | 武將／詞綴多名 | 維護一份 Name Glossary（可附於本文件附錄，實作時補） |
+
+### 6.2 驗證清單（實作後）
+
+**基礎設施**
+
+- [ ] 預設為 zh-TW；清 storage 後仍為繁中
+- [ ] 切 en → reload → 仍為 en
+- [ ] 非法 `tk_lang` 值回退預設
+- [ ] 缺 key 時 fallback 行為符合預期（開發時可見）
+
+**畫面抽測**
+
+- [ ] Hub 主流程（選角、進 Rogue／PvP、解鎖 dialog）
+- [ ] 設定：語言列 + 其餘標籤跟語系
+- [ ] 教學：gate → 步驟 → 完成／跳過
+- [ ] Loading tips
+- [ ] Promo 變體字幕／overlay
+- [ ] Rogue：選卡、HUD 目標、banner、復活 toast、詞綴、分享
+- [ ] 3V3／FFA／PVE：mission、announcer、kill feed 名、結算、回營
+- [ ] 死亡／復活／觀戰 Element 字
+- [ ] Pass／兌換錯誤（若可觸發）
+
+**回歸**
+
+- [ ] 全程 zh-TW 與改前語氣／用詞一致（抽樣對 `DESIGN.md`）
+- [ ] 數值與卡效不因抽字串而改變
+- [ ] 多人房名／玩家暱稱（使用者輸入）不強制翻譯
+
+---
+
+## 7. 建議不做的事
+
+1. **不要**上完整 i18next／ICU 重型方案 — 專案是 globals + DOM，薄 `t()` 足夠。
+2. **不要**把文案主庫搬到場景 Entity Text — 現況不在那裡，維護成本更高。
+3. **不要**為 editor attribute／console 做翻譯。
+4. **不要**用「全專案搜中文 → 一次替換」無 key 遷移 — 必漏動態模板與邏輯字串。
+5. **不要**讓英文 Voice 覆寫 `DESIGN.md` 繁中規範；兩套並存。
+6. **不要**在未修邏輯字串比對前就全面切 EN 當預設。
+
+---
+
+## 8. 日後實作任務拆分（給實作 PR／對話用）
+
+| 順序 | 任務 | 主要檔案 |
+|------|------|----------|
+| 1 | 加 `i18n.js` + 空／種子 locale + Settings 語言列 | `i18n.js`、`locales/*`、`gameSettings.js` |
+| 2 | Hub 殼層 `t()` | `characterSelect.js` |
+| 3 | Tutorial + Loading + Promo | `tutorialConfig`、directors、`customLoadingScreen`、`promoConfig` |
+| 4 | `getDisplayName` + brawler 雙語欄 | `brawlerConfig` + call sites |
+| 5 | Word 資料與描述模板 | `wordConfig`、`wordSystem` |
+| 6 | Rogue UI／banner／HUD | `rogueDirector`、`rogueBuildShare` |
+| 7 | 對戰／結算／死亡 + 清邏輯字串依賴 | `scoreManager`、`gameModeManager`、`playerController` |
+| 8 | 文件：`DESIGN.md` English voice；宣傳底稿 EN 段 | markdown only |
+
+---
+
+## 9. 附錄 — 快速對照：「中文今天在哪」
+
+| 層 | 檔案 |
+|----|------|
+| 資料 config | `brawlerConfig.js`、`wordConfig.js`、`tutorialConfig.js`、`promoConfig.js` |
+| DOM UI | `characterSelect.js`、`rogueDirector.js`、`gameSettings.js`、`scoreManager.js`、`gameModeManager.js`、`customLoadingScreen.js`、`tutorialDirector.js`、`promoDirector.js`、`rogueBuildShare.js`、`entitlementManager.js` |
+| Element 字 | `playerController.js`（+ 少數 `gameModeManager`／`scoreManager`） |
+| 設計／行銷（非 runtime） | `DESIGN.md`、`宣傳文案底稿.md` |
+
+**一句話：** 這是 **字串抽出 + `t()` 改造** 問題，不是場景資產問題。槓桿最大的是先做 config（tutorial／promo／brawler／word），再改大型 DOM builder（Hub → Rogue → 結算）。
+
+---
+
+*文件版本：2026-07-22｜對應探索：繁中硬編現況 → 薄 TKI18n + zh-TW/en packs + 分階段遷移。*

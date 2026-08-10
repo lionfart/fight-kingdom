@@ -1,0 +1,87 @@
+# GameAnalytics 接入說明
+
+> Tap Kingdom / 拇指群雄。換電腦可說：「依 GAMEANALYTICS.md 接分析」。
+
+PlayCanvas 網頁遊戲無法使用 Unity Gaming Services Analytics。本專案以 **GameAnalytics**（官方 JS SDK）對應 UGS 能力：session、Design／Progression／Business、DAU／留存儀表板。
+
+---
+
+## 架構
+
+```
+game / progression / entitlement
+        │ app.fire
+        ▼
+PlayCanvas app bus
+        │
+        ▼
+analyticsManager  ──consent + ready──►  GameAnalytics JS SDK  ──►  Dashboard
+```
+
+鏡像 `authManager.js` 的 CDN 載入：動態插入 script → initialize → 對外只暴露 `app.analyticsManager`。
+
+---
+
+## 帳號側（你先做）
+
+1. 到 [GameAnalytics](https://gameanalytics.com) 建立遊戲（平台選 **HTML5 / Web**）。
+2. 取得 **Game Key** 與 **Secret Key**。
+3. 在 dashboard 啟用 Design / Progression / Business 等事件維度。
+
+金鑰填在 PlayCanvas 腳本 attributes（與 Supabase key 相同做法）。Web 端 Secret Key 會暴露給客戶端，這是 GA JS SDK 的既定模型。
+
+---
+
+## Editor 掛載
+
+1. 確認 script asset **`analyticsManager.js`** 已在專案（Preload）。
+2. 把 script **`analyticsManager`** 加到與 `authManager` / `progressionManager` **同一 root entity**。
+3. Inspector 填入 `gameKey`、`secretKey`；`buildVersion` 預設 `0.1.0`；`enabled` 可當總開關。
+4. 玩家須在 **設定 → 分享遊玩數據** 開啟後才會載入 SDK／送事件（預設關閉，`localStorage` key：`tk_analytics_consent`）。
+
+---
+
+## 事件對照
+
+| 遊戲事件 | GameAnalytics |
+|---|---|
+| `game:start` | Design `Match:Start:{mode}:{brawler}`；Progression Start |
+| `progression:matchRewards` | Design `Match:End:{mode}:{Won\|Lost}`；Progression Complete／Fail |
+| `progression:levelUp` | Design `Progression:LevelUp` |
+| `progression:characterUnlocked` / `skinUnlocked` | Design Unlock |
+| `entitlement:purchaseSuccess` | Business USD $6.99、SKU `character_pass` |
+| `entitlement:purchaseCancelled` | Design `IAP:Cancel:character_pass` |
+| `auth:ready` / `signedOut` | Design Auth；user id 用 Supabase UUID（不送 email） |
+| `tutorial:*` | Design `Tutorial:{step}` |
+| `rogue:begin` / `progression:rogueCleared` | Progression Rogue |
+
+不追蹤高頻 raw input（`input:flick`、每發子彈）。
+
+---
+
+## 主要檔案
+
+| 檔案 | 用途 |
+|---|---|
+| `analyticsManager.js` | CDN SDK + consent + 事件橋接 |
+| `gameSettings.js` | 同意開關 UI |
+| `localeZhTw.js` / `localeEn.js` | 「分享遊玩數據」文案 |
+| `characterSelect.js` | 隱私政策說明可選 GA |
+| `progressionManager.js` | `matchRewards` 帶上 won／kills／brawler |
+
+---
+
+## 驗證
+
+1. Launch → 設定開啟「分享遊玩數據」。
+2. 選角 → 開打 → 結算；GA Realtime 應見 `Match:Start`、`Match:End`。
+3. 關閉同意後確認不再送新事件。
+4. 發佈版 `https://playcanv.as/e/p/8Voxp6MF/` 再驗一次（注意 adblock）。
+
+---
+
+## 刻意不做
+
+- 不改戰鬥／計分核心，只訂閱 `app.fire`
+- 不取代 `diagRunner.js`／vConsole（開發診斷 ≠ 產品分析）
+- 不送 PII（email）

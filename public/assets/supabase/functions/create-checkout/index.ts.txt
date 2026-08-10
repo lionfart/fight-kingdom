@@ -1,0 +1,103 @@
+// Supabase Edge Function: create-checkout
+// Secrets: STRIPE_SECRET_KEY, CHARACTER_PASS_PRICE_ID
+// Optional: CHECKOUT_SUCCESS_URL, CHECKOUT_CANCEL_URL (else derived from request body)
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import Stripe from 'https://esm.sh/stripe@14?target=deno';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const SKU = 'character_pass';
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return json({ error: 'missing_authorization' }, 401);
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData?.user) {
+      return json({ error: 'invalid_session' }, 401);
+    }
+
+    const user = userData.user;
+    const isAnonymous = !user.email_confirmed_at && !user.email && !user.phone;
+    if (isAnonymous || !user.email) {
+      return json({ error: 'email_required', message: 'Link an email before purchasing.' }, 403);
+    }
+
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+    const priceId = Deno.env.get('CHARACTER_PASS_PRICE_ID');
+    if (!stripeKey || !priceId) {
+      return json({ error: 'stripe_not_configured' }, 500);
+    }
+
+    // Already owned?
+    const { data: existing } = await supabase
+      .from('player_entitlements')
+      .select('sku')
+      .eq('user_id', user.id)
+      .eq('sku', SKU)
+      .maybeSingle();
+
+    if (existing) {
+      return json({ error: 'already_owned', characterPass: true }, 409);
+    }
+
+    let body = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const defaultBase = 'https://launch.playcanvas.com/2488337';
+    const baseUrl = (body.returnBase || Deno.env.get('CHECKOUT_RETURN_BASE') || defaultBase).replace(/\/$/, '');
+    const successUrl = `${baseUrl}?purchase=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}?purchase=cancel`;
+
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: user.id,
+      customer_email: user.email,
+      metadata: {
+        user_id: user.id,
+        sku: SKU,
+      },
+    });
+
+    return json({ url: session.url, sessionId: session.id });
+  } catch (e) {
+    console.error('[create-checkout]', e);
+    return json({ error: String(e?.message || e) }, 500);
+  }
+});
+
+function json(payload, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}

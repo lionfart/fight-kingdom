@@ -1,0 +1,32 @@
+-- Character Pass entitlements (Phase 1)
+-- Run in Supabase SQL Editor. Inserts are service-role only (Dashboard / Stripe webhook).
+
+create table if not exists public.player_entitlements (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  sku text not null,
+  source text,
+  stripe_session_id text,
+  granted_at timestamptz not null default now(),
+  primary key (user_id, sku)
+);
+
+create unique index if not exists player_entitlements_stripe_session_id_key
+  on public.player_entitlements (stripe_session_id)
+  where stripe_session_id is not null;
+
+alter table public.player_entitlements enable row level security;
+
+drop policy if exists "Users can read own entitlements" on public.player_entitlements;
+create policy "Users can read own entitlements"
+  on public.player_entitlements
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- No insert/update/delete policies for authenticated clients.
+-- Service role (Dashboard / Edge Functions) bypasses RLS.
+
+-- Manual test grant (replace USER_UUID):
+-- insert into public.player_entitlements (user_id, sku, source)
+-- values ('USER_UUID', 'character_pass', 'manual')
+-- on conflict (user_id, sku) do nothing;

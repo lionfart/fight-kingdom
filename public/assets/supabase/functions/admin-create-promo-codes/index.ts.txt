@@ -1,0 +1,115 @@
+// Supabase Edge Function: admin-create-promo-codes
+// Secret: PROMO_ADMIN_SECRET (header X-Admin-Secret)
+// Deploy: supabase functions deploy admin-create-promo-codes --no-verify-jwt
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-secret',
+};
+
+const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function randomSegment(len: number): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let out = '';
+  for (let i = 0; i < len; i++) {
+    out += CHARSET[bytes[i] % CHARSET.length];
+  }
+  return out;
+}
+
+function makeCode(prefix: string): string {
+  const p = prefix ? prefix.toUpperCase().replace(/[^A-Z0-9-]/g, '') : 'TKPASS';
+  return `${p}-${randomSegment(6)}`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const adminSecret = Deno.env.get('PROMO_ADMIN_SECRET');
+    if (!adminSecret) {
+      return json({ error: 'admin_not_configured' }, 500);
+    }
+
+    const provided = req.headers.get('X-Admin-Secret') || '';
+    if (provided !== adminSecret) {
+      return json({ error: 'forbidden' }, 403);
+    }
+
+    let body: {
+      count?: number;
+      prefix?: string;
+      note?: string;
+      expiresAt?: string | null;
+      sku?: string;
+    } = {};
+
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const count = Math.max(1, Math.min(100, Math.floor(body.count || 1)));
+    const prefix = body.prefix || 'TKPASS';
+    const note = body.note || null;
+    const expiresAt = body.expiresAt || null;
+    const sku = body.sku || 'character_pass';
+
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    if (!serviceKey || !supabaseUrl) {
+      return json({ error: 'misconfigured' }, 500);
+    }
+
+    const admin = createClient(supabaseUrl, serviceKey);
+    const codes: string[] = [];
+    const rows: Array<Record<string, unknown>> = [];
+
+    for (let attempt = 0; attempt < count * 5 && codes.length < count; attempt++) {
+      const code = makeCode(prefix);
+      if (codes.includes(code)) continue;
+      codes.push(code);
+      rows.push({
+        code,
+        sku,
+        note,
+        expires_at: expiresAt,
+      });
+    }
+
+    if (rows.length < count) {
+      return json({ error: 'code_generation_failed' }, 500);
+    }
+
+    const { error } = await admin.from('promo_codes').insert(rows);
+    if (error) {
+      console.error('[admin-create-promo-codes] insert', error);
+      return json({ error: error.message }, 500);
+    }
+
+    return json({
+      created: codes.length,
+      codes,
+      sku,
+      expiresAt,
+      note,
+    });
+  } catch (e) {
+    console.error('[admin-create-promo-codes]', e);
+    return json({ error: String(e?.message || e) }, 500);
+  }
+});
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}

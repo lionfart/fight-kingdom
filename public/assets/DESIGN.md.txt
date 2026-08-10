@@ -1,0 +1,350 @@
+---
+version: alpha
+name: Tap Kingdom
+description: 拇指群雄 — 漆器青銅調三國單指亂鬥 UI 設計系統
+
+colors:
+  ink: "#0e0c09"
+  lacquer: "#1c150e"
+  bronze: "#c9a25a"
+  gold: "#f5d27a"
+  gold-text: "#ffe9a8"
+  seal: "#b0342a"
+  text: "#e8dcc4"
+  text-muted: "#d8ccb8"
+  text-sub: "#9a8f7a"
+  on-gold: "#241a08"
+  faction-wei: "#1E88E5"
+  faction-shu: "#43A047"
+  faction-wu: "#E53935"
+  faction-qun: "#FBC02D"
+  team-blue: "#1E88E5"
+  team-red: "#E53935"
+  combat-me: "#4aa8d8"
+  combat-ally: "#5cb85c"
+  combat-enemy: "#e04848"
+
+typography:
+  display-lg:
+    fontFamily: Noto Serif TC
+    fontSize: 48px
+    fontWeight: 900
+    lineHeight: 1.1
+    letterSpacing: 6px
+  headline-md:
+    fontFamily: Noto Serif TC
+    fontSize: 22px
+    fontWeight: 900
+    lineHeight: 1.2
+    letterSpacing: 2px
+  body-md:
+    fontFamily: Microsoft JhengHei
+    fontSize: 16px
+    fontWeight: 400
+    lineHeight: 1.6
+  label-md:
+    fontFamily: Microsoft JhengHei
+    fontSize: 14px
+    fontWeight: 700
+    lineHeight: 1.4
+    letterSpacing: 1px
+  combat-num:
+    fontFamily: Anton
+    fontSize: 28px
+    fontWeight: 400
+    lineHeight: 1
+    letterSpacing: 0.5px
+
+rounded:
+  sm: 8px
+  md: 12px
+  lg: 14px
+  xl: 16px
+
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  panel-padding: 28px
+  card-gap: 10px
+  section-gap: 16px
+
+components:
+  button-gold:
+    backgroundColor: "linear-gradient(180deg,#f5d27a,#c9a25a 55%,#a8823f)"
+    textColor: "{colors.on-gold}"
+    typography: "{typography.headline-md}"
+    rounded: "{rounded.md}"
+    padding: 14px
+  panel-standard:
+    backgroundColor: "{colors.lacquer}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.panel-padding}"
+  card-standard:
+    backgroundColor: "linear-gradient(180deg,#2a2118,#171009)"
+    textColor: "{colors.gold}"
+    rounded: "{rounded.md}"
+    padding: 14px
+  mission-bar:
+    textColor: "{colors.gold}"
+    typography: "{typography.label-md}"
+    rounded: "{rounded.sm}"
+    padding: 4px
+  announcer-banner:
+    backgroundColor: "linear-gradient(180deg,#221a12,#15100b)"
+    textColor: "{colors.gold}"
+    rounded: "{rounded.sm}"
+    padding: 4px
+---
+
+## Overview
+
+Tap Kingdom（拇指群雄）的視覺語言以**漆器、青銅、朱印、軍令**為意象，目標是在快節奏單指操作下仍保有三国題材的威儀感，而非西方 arcade brawl 的廉價霓虹風。
+
+品牌個性：威儀而不沉重；資訊清晰、層級分明；文案半文言、短句、軍事語感。
+
+### UI 分層（Tier）
+
+| Tier | 名稱 | 代表畫面 | 閱讀節奏 | 主軸參考 |
+|------|------|----------|----------|----------|
+| T1 | 品牌／選單層 | Hub、選角、設定 | 慢 | characterSelect + uiTheme |
+| T2 | 決策／暫停層 | Rogue 三選一、結算面板 | 中 | tk-panel / tk-card |
+| T3 | 戰場 HUD 層 | 血條、計分條、mission bar | 快（≤0.5s） | scoreManager live-hud |
+| T4 | 宣告／時刻層 | 波次 banner、回合 announcer | 瞬間 | announcer presets |
+
+**原則**：T1 定品牌與 token；T3/T4 共用 token，但不照搬 T1 的 panel 厚重邊框造型。
+
+### 實作對應
+
+- **Normative CSS 實作**：`uiTheme.js`（`:root` 變數 + 共用 class）
+- **本文件**：設計 rationale、文案、語意角色；Phase 1 起新 UI 須引用 token，禁止硬編 hex
+
+---
+
+## Colors
+
+### 語意角色
+
+| Token | 用途 |
+|-------|------|
+| `ink` / `lacquer` | 底色、overlay、漆器深墨 |
+| `bronze` / `gold` | 邊框、標題、軍餉、accent |
+| `seal` | 一屏唯一主行動、危險、開戰瞬間 |
+| `text` / `text-muted` / `text-sub` | 正文三級 |
+| `faction-*` | **陣營識別**（魏蜀吳群武將、卡牌 accent、羈絆） |
+| `team-blue` / `team-red` | **連線對戰隊伍色**（與 faction 語意獨立；現值碰巧與魏藍、吳紅同色） |
+| `combat-me/ally/enemy` | 戰場血條／關係色（不替代 faction 色） |
+
+### faction-wei 目前用在哪裡
+
+| 位置 | 檔案 | 現值 | 用途 |
+|------|------|------|------|
+| CSS token | `uiTheme.js` | `#1E88E5` | `--tk-faction-wei`；操作說明 PC 區塊邊框／標題色 |
+| 選角 | `characterSelect.js` | `#1E88E5` | 魏武將（曹操、張遼）卡牌左側 accent |
+| Rogue | `rogueDirector.js` | `#2b6ba3` ⚠️ | 招募卡、羈絆 banner、軍團 chip 邊框 — **與 uiTheme 不一致** |
+| 詞條流派 | `wordConfig.js` | `#2b6ba3` | 「守」系字印色 — 與 rogueDirector 魏色連動 |
+
+**決策**：`faction-wei` 以 `#1E88E5`（uiTheme / 選角）為準；Phase 1 將 `rogueDirector.factionColor.wei` 與 `wordConfig` 對齊。  
+**連線隊伍**：使用獨立 `team-blue` / `team-red` token（現值 `#1E88E5` / `#E53935`），語意上不視為魏／吳 faction 色，僅數值碰巧相同。
+
+### team-blue / team-red 目前用在哪裡
+
+| 位置 | 用途 |
+|------|------|
+| `characterSelect.js` | 房間大廳玩家列表邊框 |
+| `gameModeManager.js` | Bounty 倒數 UI、announcer `.text-blue` / `.text-red` |
+| `scoreManager.js` | 3v3 計分條我方／敵方數字色 |
+
+---
+
+## Typography
+
+| Role | Token | 字體 | 用於 |
+|------|-------|------|------|
+| 儀式標題 | `display-lg` | Noto Serif TC | Hub 品牌、面板標題、波次名 |
+| 區塊標題 | `headline-md` | Noto Serif TC | 按鈕 gold、武將名（選單） |
+| 正文 | `body-md` | Microsoft JhengHei | 描述、hint、按鈕 secondary |
+| 標籤 | `label-md` | Microsoft JhengHei 700 | label、badge、mission bar |
+| 戰鬥數字 | `combat-num` | Anton | 傷害、波次計數、gem、倒數 |
+
+**決策（v0.1）**：採用上表草稿。血條武將名、開場 intro 大字等細節 Phase 1 實作時依表執行，不另開例外除非實測可讀性不足。
+
+---
+
+## Layout
+
+- **Base unit**：8px（半階 4px 僅 micro-adjust）
+- **Hub**：panel max 560px；content column max 400px
+- **Safe area**：`env(safe-area-inset-*)`
+- **Mission bar**：位於計分條（`#live-score-bar`）正下方；Rogue 為 `#rogue-hud` 頂列下方之 `rg-hud-obj`
+- **HUD 頂列**：波次／計分列永遠單行（`white-space: nowrap`）；極窄螢幕允許波次文字 ellipsis
+
+### Hub 流程（已定）
+
+- **單人出征**：維持 A — Hub → 選陣 → 群雄集結 → 選角
+- **征／戰視覺層級**：待定（是否 primary／secondary 分化）
+
+---
+
+## Elevation & Depth
+
+- **T1/T2**：tonal layers + bronze border glow；避免厚重 drop shadow
+- **T3**：血條黑底 + 細邊；不用 panel 級 2px bronze 外框
+- **T4**：banner 型（頂部窄條）或 fullscreen 型（半透明 overlay + serif 大字）
+
+---
+
+## Shapes
+
+- `rounded-sm` 8px：chip、小按鈕
+- `rounded-md` 12px：card、hub-entry
+- `rounded-lg` 14px：panel
+- Kanji seal：40×40px，rotate -3°～-4°
+- 禁止同一 view 混用 0px 直角與 `rounded-lg`
+
+---
+
+## Components
+
+| Component | CSS class | Tier | 模組 |
+|-----------|-----------|------|------|
+| Panel | `.tk-panel` | T1/T2 | uiTheme |
+| Card | `.tk-card` | T2 | uiTheme |
+| Button gold | `.tk-btn-gold` | T1/T2 | uiTheme |
+| Mission bar | `.rg-hud-obj` / 待統一 `.tk-mission-bar` | T3 | rogueDirector / scoreManager |
+| Live score | `#live-score-bar` | T3 | scoreManager |
+| Announcer banner | `#rogue-banner` | T4 | rogueDirector |
+| Announcer fullscreen | `#knockout-announcer` | T4 | gameModeManager |
+
+---
+
+## Voice & Copy Guide
+
+### 語氣
+
+- 主語言：繁體中文，半文言、短句
+- 禁止：完整英文句、英文詞綴名、Anton italic + UPPERCASE 英文 announcer
+
+### 允許的英文
+
+模式縮寫 `3V3`、`FFA`、`ROGUE`；品牌副標 `TAP KINGDOM`；HUD 縮寫 `Lv`、`K`（空間極窄時）
+
+### 標點
+
+- 標題副標：` — `（全形破折號，前後空格）
+- Banner 合併：` · `
+- 詞綴疊加：`鐵壁·驍勇·關羽`
+
+### 詞綴中文化（normative）
+
+| key | 中文名 |
+|-----|--------|
+| tough | 鐵壁 |
+| fierce | 驍勇 |
+| swift | 疾行 |
+| rage | **狂暴** |
+| giant | 巨軀 |
+| — (Boss) | 天公將軍 |
+
+顯示：`{詞綴}·{武將名}`；詞綴色 `--tk-gold`
+
+---
+
+## Announcer Copy Templates
+
+### Preset C — 模式開場 intro（已定）
+
+| 模式 | 文案 |
+|------|------|
+| default | 稱霸亂世 |
+| 3V3_KNOCKOUT | 背水一戰 |
+| 3V3_BOUNTY | 奪寶致勝 |
+| PVE | 初陣破敵 |
+| ROGUE | 以戰養戰，成軍破陣！ |
+| FFA | 剩者為王 |
+
+具體數字（如 15 寶石）不寫在 intro；由 mission bar 負責。
+
+### Preset B — 回合／勝負 fullscreen（已定）
+
+| 現況（廢） | 採用 |
+|-----------|------|
+| ROUND {n} OVER | **回合 {n} 結束**（阿拉伯數字） |
+| BLUE TEAM WINS | **我軍勝利** |
+| RED TEAM WINS | **敵軍獲勝** |
+| BATTLE! | **開戰！** |
+| YOU DIED | **你已陣亡** |
+
+平局、時間到等句式 Phase 1 實作時比照此語氣補齊（如「平局」「時刻已盡」）。
+
+### Preset D — 結算畫面（已定）
+
+| 現況（廢） | 採用 |
+|-----------|------|
+| VICTORY | **勝利** |
+| BACK TO MENU | **回營** |
+
+其餘結算標題（失利、平局、排行榜）Phase 1 比照「勝利／回營」語氣中文化。
+
+### Preset E — Kill Feed（已定）
+
+格式：**[擊殺者 ID] [武器/技能 Icon] [被擊殺者 ID]**
+
+- 中間為圖示，兩側為玩家／武將顯示名
+- 不用英文 `eliminated`、`KO`
+
+### Preset A — Rogue banner（維持現有中文）
+
+波次 announce、陣亡、復活、羈絆等沿用 `rogueDirector` 現有中文模板與 `目標：` 前綴。
+
+---
+
+## Mission Bar Copy（已定）
+
+所有進戰模式在計分條下方顯示常駐 `目標：…`（與 Rogue `rg-hud-obj` 同格式）。
+
+| 模式 | 文案 |
+|------|------|
+| 3V3_BOUNTY | 目標：集滿 15 寶石並守滿 15 秒 |
+| 3V3_KNOCKOUT | 目標：殲滅敵隊，先奪 3 勝 |
+| FFA | 目標：限時內擊殺稱王 |
+| PVE | 目標：殲滅敵軍，突破關卡 |
+| ROGUE | 動態（殲滅／堅守／斬殺／佔領）— 見 `rogueDirector._updateHud` |
+
+Bounty 達標倒數中可動態改為：`目標：守住領先 · 剩 {n} 秒`（Phase 1）。
+
+---
+
+## Do's and Don'ts
+
+### Do
+
+- 新 UI 引用 `var(--tk-*)` 或 `{colors.*}` token
+- 一屏一個主行動（`seal` / `gold` 級）
+- faction 色與 team 色語意分開；允許 hex 相同但 token 名不同
+- 戰場數字用 Anton；mission／announcer 中文用 body 或 serif
+- 頂列 HUD 永遠單行
+
+### Don't
+
+- 在 feature script 內 `createElement('style')` 寫死色值（Phase 1 清理既有違規）
+- 使用 `#FFD700` 純金（用 `--tk-gold`）
+- Anton italic + 全大寫英文 announcer
+- 英文詞綴（Ironclad 等）
+
+---
+
+## Phase 1 待定
+
+- [ ] 按鈕 hover / focus-visible 變體全集
+- [ ] Rogue 局內是否隱藏 `#prog-bar`（與 `#rogue-hud` 重疊）
+- [ ] Hub「征／戰」primary／secondary 視覺分化
+- [ ] `rogueDirector.factionColor` 對齊 `--tk-faction-*`
+- [ ] 統一 `.tk-mission-bar` class；PvP mission bar 實作
+- [ ] `gameModeManager` / `scoreManager` announcer 與 kill feed 中文化
+- [ ] affix 英文改中文（`rogueDirector.affixes`）
+- [ ] 結算畫面其餘英文（DEFEAT、LEADERBOARD 等）逐條中文化
+- [ ] WCAG 對比 lint（可選 `@google/design.md lint`）

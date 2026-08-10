@@ -1,0 +1,7 @@
+# Tap Kingdom — Supabase CLI（Character Pass deploy）
+# Project: https://supabase.com/dashboard/project/nyqjjsuzxwxufauqoqvw
+
+project_id = "nyqjjsuzxwxufauqoqvw"
+
+[functions]
+verify_jwt = true

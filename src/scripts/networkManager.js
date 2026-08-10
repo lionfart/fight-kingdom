@@ -1,8 +1,8 @@
-var NetworkManager = pc.createScript('networkManager');
+﻿var NetworkManager = pc.createScript('networkManager');
 
 NetworkManager.attributes.add('serverUrl', {
     type: 'string',
-    default: 'http://localhost:3000',
+    default: 'https://fight-kingdom-server.onrender.com',
     title: 'Server URL (Fight Kingdom multiplayer server)'
 });
 
@@ -50,12 +50,12 @@ NetworkManager.prototype.initialize = function() {
         if (this.socket && this.socket.connected) { this.socket.emit('playerHit', hitData); }
     }, this);
 
-    // 🌟 轉發 roll（翻滾）給 server
+    // ğŸŒŸ è½‰ç™¼ rollï¼ˆç¿»æ»¾ï¼‰çµ¦ server
     this.app.on('network:roll', (rollData) => {
         if (this.socket && this.socket.connected) { this.socket.emit('playerRoll', rollData); }
     }, this);
 
-    // 🌟 轉發玩家狀態（DOT/stun）給 server
+    // ğŸŒŸ è½‰ç™¼ç©å®¶ç‹€æ…‹ï¼ˆDOT/stunï¼‰çµ¦ server
     this.app.on('network:playerState', (stateData) => {
         if (this.socket && this.socket.connected) { this.socket.emit('playerState', stateData); }
     }, this);
@@ -70,7 +70,7 @@ NetworkManager.prototype.initialize = function() {
     if (typeof document !== 'undefined') {
         document.addEventListener("visibilitychange", () => {
             if (!document.hidden) {
-                console.log("👀 [NetworkManager] 玩家回到遊戲！強制請求伺服器同步全場狀態！");
+                console.log("ğŸ‘€ [NetworkManager] ç©å®¶å›åˆ°éŠæˆ²ï¼å¼·åˆ¶è«‹æ±‚ä¼ºæœå™¨åŒæ­¥å…¨å ´ç‹€æ…‹ï¼");
                 if (this.socket && this.socket.connected) {
                     this.socket.emit('requestFullSync');
                 }
@@ -181,11 +181,11 @@ NetworkManager.prototype._connectToServer = function(actionType) {
     });
 
     this.socket.on('match_found', (data) => { this.app.fire('lobby:matchFound', data); });
-    this.socket.on('game_start', () => { console.log("⚔️ [軍令狀] 全員就緒，戰鬥開始！"); });
+    this.socket.on('game_start', () => { console.log("âš”ï¸ [è»ä»¤ç‹€] å…¨å“¡å°±ç·’ï¼Œæˆ°é¬¥é–‹å§‹ï¼"); });
     this.socket.on('enemyMoved', (enemyData) => { this.app.fire('network:enemyMoved', enemyData); });
     this.socket.on('enemyShot', (data) => { this.app.fire('network:enemyShot', data); });
-    this.socket.on('enemyRoll', (data) => { this.app.fire('network:enemyRoll', data); });   // 🌟 對方翻滾
-    this.socket.on('enemyState', (data) => { this.app.fire('network:enemyState', data); });   // 🌟 對方狀態(DOT/stun)
+    this.socket.on('enemyRoll', (data) => { this.app.fire('network:enemyRoll', data); });   // ğŸŒŸ å°æ–¹ç¿»æ»¾
+    this.socket.on('enemyState', (data) => { this.app.fire('network:enemyState', data); });   // ğŸŒŸ å°æ–¹ç‹€æ…‹(DOT/stun)
 
     this.socket.on('server:confirmHit', (data) => {
         this.app.fire('global:syncHit', data);
@@ -202,10 +202,10 @@ NetworkManager.prototype._connectToServer = function(actionType) {
     });
 
     this.socket.on('server:fullStateSync', (data) => {
-        console.log("📡 [NetworkManager] 收到全場快照，強制校正狀態！");
+        console.log("ğŸ“¡ [NetworkManager] æ”¶åˆ°å…¨å ´å¿«ç…§ï¼Œå¼·åˆ¶æ ¡æ­£ç‹€æ…‹ï¼");
         this.app.fire('network:fullStateSync', data);
         
-        // 🌟 如果後端有傳送當前場上的寶石狀態，可以在這裡一併校正 (選用)
+        // ğŸŒŸ å¦‚æœå¾Œç«¯æœ‰å‚³é€ç•¶å‰å ´ä¸Šçš„å¯¶çŸ³ç‹€æ…‹ï¼Œå¯ä»¥åœ¨é€™è£¡ä¸€ä½µæ ¡æ­£ (é¸ç”¨)
         if (data.activeGems && data.activeGems.length > 0) {
             this.app.fire('network:dropGems', { gems: data.activeGems });
         }
@@ -239,20 +239,20 @@ NetworkManager.prototype._connectToServer = function(actionType) {
     });
 
     // ==========================================
-    // 🌟 新增：寶石爭奪戰專屬通訊協議 (Bounty Mode)
+    // ğŸŒŸ æ–°å¢ï¼šå¯¶çŸ³çˆ­å¥ªæˆ°å°ˆå±¬é€šè¨Šå”è­° (Bounty Mode)
     // ==========================================
     
-    // 1. 接收伺服器：中場定時產生新寶石
+    // 1. æ¥æ”¶ä¼ºæœå™¨ï¼šä¸­å ´å®šæ™‚ç”¢ç”Ÿæ–°å¯¶çŸ³
     this.socket.on('spawnGem', (data) => {
         this.app.fire('network:spawnGem', data);
     });
 
-    // 2. 接收伺服器：某個玩家/AI 死亡，噴出身上寶石
+    // 2. æ¥æ”¶ä¼ºæœå™¨ï¼šæŸå€‹ç©å®¶/AI æ­»äº¡ï¼Œå™´å‡ºèº«ä¸Šå¯¶çŸ³
     this.socket.on('dropGems', (data) => {
         this.app.fire('network:dropGems', data);
     });
 
-    // 3. 接收伺服器：確認某玩家成功拾取寶石
+    // 3. æ¥æ”¶ä¼ºæœå™¨ï¼šç¢ºèªæŸç©å®¶æˆåŠŸæ‹¾å–å¯¶çŸ³
     this.socket.on('gemPicked', (data) => {
         this.app.fire('network:gemPicked', data);
         if (data && (data.blueGems != null || data.redGems != null)) {

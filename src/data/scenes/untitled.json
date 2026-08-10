@@ -1,4 +1,4 @@
-{
+﻿{
     "branch_id": "0cdc95e1-2b30-4579-b356-3452986ecc29",
     "name": "Untitled",
     "created": "2023-11-14T11:28:19.373Z",
@@ -820,7 +820,7 @@
                         "networkManager": {
                             "enabled": true,
                             "attributes": {
-                                "serverUrl": "http://localhost:3000"
+                                "serverUrl": "https://fight-kingdom-server.onrender.com"
                             }
                         },
                         "vConsoleInit": {

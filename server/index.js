@@ -638,9 +638,9 @@ io.on('connection', (socket) => {
     socket.on('client_ready', () => { /* reserved */ });
 
     socket.on('playerMovement', data => onPlayerMovement(socket, data));
-    socket.on('playerShoot', relay('playerShoot', 'enemyShot'));
-    socket.on('playerRoll', relay('playerRoll', 'enemyRoll'));
-    socket.on('playerState', relay('playerState', 'enemyState'));
+    socket.on('playerShoot', data => relay('playerShoot', 'enemyShot')(socket, data));
+    socket.on('playerRoll', data => relay('playerRoll', 'enemyRoll')(socket, data));
+    socket.on('playerState', data => relay('playerState', 'enemyState')(socket, data));
     socket.on('playerHit', data => onPlayerHit(socket, data));
     socket.on('playerRespawn', () => onPlayerRespawn(socket));
     socket.on('gemPicked', data => onGemPicked(socket, data));

@@ -900,8 +900,8 @@
                         "authManager": {
                             "enabled": true,
                             "attributes": {
-                                "supabaseUrl": "YOUR_SUPABASE_PROJECT_URL",
-                                "publishableKey": "YOUR_SUPABASE_PUBLISHABLE_KEY",
+                                "supabaseUrl": "https://byhyaxlxxlvuliytwxdf.supabase.co",
+                                "publishableKey": "sb_publishable_TiKgo9DtxArClELK348LJQ_-zNf5Flp",
                                 "emailRedirectUrl": "http://localhost:5173"
                             }
                         },

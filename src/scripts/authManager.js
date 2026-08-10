@@ -1,28 +1,28 @@
-// =============================================================================
-// AuthManager — Supabase 帳號（Anonymous 優先，之後以 Google OAuth 綁定／登入）
-// SDK：自動從 CDN 載入（不依賴 PlayCanvas External Scripts 設定）
+﻿// =============================================================================
+// AuthManager â€” Supabase å¸³è™Ÿï¼ˆAnonymous å„ªå…ˆï¼Œä¹‹å¾Œä»¥ Google OAuth ç¶å®šï¼ç™»å…¥ï¼‰
+// SDKï¼šè‡ªå‹•å¾ CDN è¼‰å…¥ï¼ˆä¸ä¾è³´ PlayCanvas External Scripts è¨­å®šï¼‰
 // =============================================================================
 
 var AuthManager = pc.createScript('authManager');
 
 AuthManager.SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
 AuthManager.CHECKOUT_INTENT_KEY = 'fk_auth_checkout_intent';
-/** Yayınlandığı site kökü (OAuth / Checkout geri dönüşü) */
+/** YayÄ±nlandÄ±ÄŸÄ± site kÃ¶kÃ¼ (OAuth / Checkout geri dÃ¶nÃ¼ÅŸÃ¼) */
 AuthManager.PUBLISH_EMBED_URL = window.location.origin + window.location.pathname;
 
 AuthManager.attributes.add('supabaseUrl', {
     type: 'string',
-    default: 'YOUR_SUPABASE_PROJECT_URL',
+    default: 'https://byhyaxlxxlvuliytwxdf.supabase.co',
     title: 'Supabase Project URL'
 });
 
 AuthManager.attributes.add('publishableKey', {
     type: 'string',
-    default: 'YOUR_SUPABASE_PUBLISHABLE_KEY',
+    default: 'sb_publishable_TiKgo9DtxArClELK348LJQ_-zNf5Flp',
     title: 'Supabase Publishable Key'
 });
 
-// OAuth geri dönüş adresi; kendi domaininizin kökü olmalıdır
+// OAuth geri dÃ¶nÃ¼ÅŸ adresi; kendi domaininizin kÃ¶kÃ¼ olmalÄ±dÄ±r
 AuthManager.attributes.add('emailRedirectUrl', {
     type: 'string',
     default: 'http://localhost:5173',
@@ -41,7 +41,7 @@ AuthManager.prototype.initialize = function () {
     var self = this;
     this._ensureSupabaseSdk(function (err) {
         if (err) {
-            console.warn('[Auth] Supabase SDK 未載入，離線模式', err.message || err);
+            console.warn('[Auth] Supabase SDK æœªè¼‰å…¥ï¼Œé›¢ç·šæ¨¡å¼', err.message || err);
             self.app.fire('auth:error', { reason: 'sdk_missing', error: err });
             return;
         }
@@ -89,7 +89,7 @@ AuthManager.prototype._ensureSupabaseSdk = function (cb) {
         });
     };
     script.onerror = function () {
-        cb(new Error('Supabase SDK script load failed — check CDN / network'));
+        cb(new Error('Supabase SDK script load failed â€” check CDN / network'));
     };
     document.head.appendChild(script);
 };
@@ -131,8 +131,8 @@ AuthManager.prototype._defaultPublishEmbedUrl = function () {
 };
 
 /**
- * OAuth redirectTo：oyunun barındığı sayfanın kendisi olmalıdır.
- * (PlayCanvas'ten bağımsız; kendi domainimizde çalışır.)
+ * OAuth redirectToï¼šoyunun barÄ±ndÄ±ÄŸÄ± sayfanÄ±n kendisi olmalÄ±dÄ±r.
+ * (PlayCanvas'ten baÄŸÄ±msÄ±z; kendi domainimizde Ã§alÄ±ÅŸÄ±r.)
  */
 AuthManager.prototype._getEmailRedirectUrl = function () {
     var configured = this._defaultPublishEmbedUrl();
@@ -148,13 +148,13 @@ AuthManager.prototype._getEmailRedirectUrl = function () {
     return origin + path;
 };
 
-/** 登入成功後的美觀網址（可清 hash 後導回） */
+/** ç™»å…¥æˆåŠŸå¾Œçš„ç¾è§€ç¶²å€ï¼ˆå¯æ¸… hash å¾Œå°å›ï¼‰ */
 AuthManager.prototype._getPrettyPublishUrl = function () {
     return this._defaultPublishEmbedUrl();
 };
 /**
- * Google 禁止在 iframe 內開 accountchooser（會 403）。
- * Publish 的 /p/ 網址把遊戲嵌在 iframe → 必須用 top 導向。
+ * Google ç¦æ­¢åœ¨ iframe å…§é–‹ accountchooserï¼ˆæœƒ 403ï¼‰ã€‚
+ * Publish çš„ /p/ ç¶²å€æŠŠéŠæˆ²åµŒåœ¨ iframe â†’ å¿…é ˆç”¨ top å°å‘ã€‚
  */
 AuthManager.prototype._redirectToOAuthUrl = function (url) {
     if (!url || typeof window === 'undefined') return;
@@ -169,7 +169,7 @@ AuthManager.prototype._redirectToOAuthUrl = function (url) {
     window.location.href = url;
 };
 
-/** 公開：OAuth／Stripe Checkout 回跳基準網址（無 query） */
+/** å…¬é–‹ï¼šOAuthï¼Stripe Checkout å›è·³åŸºæº–ç¶²å€ï¼ˆç„¡ queryï¼‰ */
 AuthManager.prototype.getRedirectBaseUrl = function () {
     return this._getEmailRedirectUrl();
 };
@@ -226,7 +226,7 @@ AuthManager.prototype._setCheckoutIntent = function () {
     } catch (e) { /* ignore */ }
 };
 
-/** 若購買流程曾要求綁定後開結帳，消費一次並回傳 true */
+/** è‹¥è³¼è²·æµç¨‹æ›¾è¦æ±‚ç¶å®šå¾Œé–‹çµå¸³ï¼Œæ¶ˆè²»ä¸€æ¬¡ä¸¦å›å‚³ true */
 AuthManager.prototype.consumeCheckoutIntent = function () {
     try {
         if (typeof sessionStorage === 'undefined') return false;
@@ -257,7 +257,7 @@ AuthManager.prototype._initClient = function () {
             }
         });
     } catch (e) {
-        console.warn('[Auth] createClient 失敗', e);
+        console.warn('[Auth] createClient å¤±æ•—', e);
         this.app.fire('auth:error', { reason: 'client_init_failed', error: e });
         return;
     }
@@ -273,13 +273,13 @@ AuthManager.prototype._initClient = function () {
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED'
             || event === 'INITIAL_SESSION') {
-            // OAuth 回跳：必須等非匿名 session 再 ready／清 URL（避免先用匿名 sync 雲端）
+            // OAuth å›è·³ï¼šå¿…é ˆç­‰éåŒ¿å session å† readyï¼æ¸… URLï¼ˆé¿å…å…ˆç”¨åŒ¿å sync é›²ç«¯ï¼‰
             if (self._oauthCallbackPending) {
                 if (isGoogleSession) {
                     self._oauthCallbackPending = false;
                     self._setSession(session);
                     if (!self.ready) self._markReady();
-                    // 先讓 cloudSave 用正確 userId 拉檔，再導回 /e/p/
+                    // å…ˆè®“ cloudSave ç”¨æ­£ç¢º userId æ‹‰æª”ï¼Œå†å°å› /e/p/
                     setTimeout(function () {
                         self._cleanAuthCallbackFromUrl();
                     }, 1200);
@@ -304,10 +304,10 @@ AuthManager.prototype._initClient = function () {
 
     this.client.auth.getSession().then(function (result) {
         if (result.error) {
-            console.warn('[Auth] getSession 失敗', result.error);
+            console.warn('[Auth] getSession å¤±æ•—', result.error);
         }
 
-        // OAuth hash 處理中：不要用可能過期的匿名 session 直接 ready
+        // OAuth hash è™•ç†ä¸­ï¼šä¸è¦ç”¨å¯èƒ½éæœŸçš„åŒ¿å session ç›´æ¥ ready
         if (self._oauthCallbackPending) {
             setTimeout(function () {
                 if (self.ready || !self._oauthCallbackPending) return;
@@ -321,7 +321,7 @@ AuthManager.prototype._initClient = function () {
                         return;
                     }
                     if (!self.ready) {
-                        console.warn('[Auth] OAuth callback 逾時無 Google session，改 Anonymous');
+                        console.warn('[Auth] OAuth callback é€¾æ™‚ç„¡ Google sessionï¼Œæ”¹ Anonymous');
                         self._oauthCallbackPending = false;
                         self._signInAnonymous();
                     }
@@ -338,7 +338,7 @@ AuthManager.prototype._initClient = function () {
 
         return self._signInAnonymous();
     }).catch(function (e) {
-        console.warn('[Auth] 初始化例外', e);
+        console.warn('[Auth] åˆå§‹åŒ–ä¾‹å¤–', e);
         self.app.fire('auth:error', { reason: 'init_exception', error: e });
     });
 };
@@ -352,7 +352,7 @@ AuthManager.prototype._sessionIsAnonymous = function (session) {
         && u.identities[0].provider === 'anonymous') {
         return true;
     }
-    // 有 Google identity 即非匿名
+    // æœ‰ Google identity å³éåŒ¿å
     if (u.identities) {
         for (var i = 0; i < u.identities.length; i++) {
             if (u.identities[i] && u.identities[i].provider === 'google') return false;
@@ -366,7 +366,7 @@ AuthManager.prototype._signInAnonymous = function () {
     var self = this;
     return this.client.auth.signInAnonymously().then(function (result) {
         if (result.error) {
-            console.warn('[Auth] Anonymous 登入失敗', result.error);
+            console.warn('[Auth] Anonymous ç™»å…¥å¤±æ•—', result.error);
             self.app.fire('auth:error', { reason: 'anonymous_failed', error: result.error });
             return;
         }
@@ -385,7 +385,7 @@ AuthManager.prototype._setSession = function (session) {
 AuthManager.prototype._markReady = function () {
     if (this.ready) return;
     this.ready = true;
-    console.log('[Auth] Ready — user:', this.getUserId(), 'anonymous:', this.isAnonymous(), 'email:', this.getEmail());
+    console.log('[Auth] Ready â€” user:', this.getUserId(), 'anonymous:', this.isAnonymous(), 'email:', this.getEmail());
     this.app.fire('auth:ready', {
         userId: this.getUserId(),
         isAnonymous: this.isAnonymous()
@@ -438,8 +438,8 @@ AuthManager.prototype.getAccountLabel = function () {
 };
 
 /**
- * Guest 綁定 Google（保留同一 user UUID）。
- * opts.intent === 'checkout'：回跳後由 entitlementManager 自動開 Stripe。
+ * Guest ç¶å®š Googleï¼ˆä¿ç•™åŒä¸€ user UUIDï¼‰ã€‚
+ * opts.intent === 'checkout'ï¼šå›è·³å¾Œç”± entitlementManager è‡ªå‹•é–‹ Stripeã€‚
  */
 AuthManager.prototype.linkGoogle = function (opts) {
     var self = this;
@@ -475,7 +475,7 @@ AuthManager.prototype.linkGoogle = function (opts) {
     });
 };
 
-/** 跨裝置：用已綁定的 Google 帳號登入（會換成該帳號 UUID） */
+/** è·¨è£ç½®ï¼šç”¨å·²ç¶å®šçš„ Google å¸³è™Ÿç™»å…¥ï¼ˆæœƒæ›æˆè©²å¸³è™Ÿ UUIDï¼‰ */
 AuthManager.prototype.signInWithGoogle = function () {
     var self = this;
     if (!this.client) {

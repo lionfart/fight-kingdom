@@ -161,6 +161,7 @@
         'hub.pass.redeeming': 'Kullanılıyor…',
         'hub.pass.redeemOk': 'Kullanıldı! Karakter Geçişi etkinleştirildi.',
         'hub.pass.redeemFail': 'Kullanım başarısız.',
+        'hub.pass.testClaimed': 'Promo kodun e-postana gönderildi!',
         'hub.auth.clearLocal': 'Yerel Verileri Temizle',
         'hub.auth.clearLocalHint': 'Yalnızca bu cihazı temizler; bulut hesabı ve geçiş kalır',
         'hub.auth.section': 'Hesap',

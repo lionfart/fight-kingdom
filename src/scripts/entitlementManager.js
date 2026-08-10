@@ -20,6 +20,7 @@ EntitlementManager.prototype.initialize = function () {
     this._devOverride = null; // null | true | false — 僅本機測試
     this._checkoutBusy = false;
     this._redeemBusy = false;
+    this._claimBusy = false;
 
     this._loadHint();
 
@@ -394,6 +395,51 @@ EntitlementManager.prototype._onAuthReady = function () {
 EntitlementManager.prototype._onEmailLinked = function () {
     this.refresh();
     this._resumeCheckoutIfNeeded();
+    this.claimTestPass();
+};
+
+/**
+ * Test kampanyası: Google bağlanınca sunucudan benzersiz TKPASS kodu talep et.
+ * Kod e-posta ile gönderilir; oyuncu kodu Kullanıcı Arayüzü'nde girer.
+ * Idempotent — aynı hesap için yalnızca tek kod üretilir.
+ */
+EntitlementManager.prototype.claimTestPass = function () {
+    var auth = this.app.authManager;
+    var client = auth && auth.getClient();
+    if (!client || !auth || auth.isAnonymous() || !auth.getEmail()) {
+        return Promise.resolve(null);
+    }
+    if (this._claimBusy) {
+        return Promise.resolve(null);
+    }
+    if (typeof client.functions !== 'object' || typeof client.functions.invoke !== 'function') {
+        return Promise.resolve(null);
+    }
+
+    this._claimBusy = true;
+    var self = this;
+
+    return client.functions.invoke('claim-test-pass').then(function (result) {
+        self._claimBusy = false;
+        if (result.error) {
+            console.warn('[Entitlement] claimTestPass invoke failed', result.error);
+            return null;
+        }
+        var data = result.data || {};
+        if (data.error) {
+            console.warn('[Entitlement] claimTestPass error', data.error, data.message || '');
+            return null;
+        }
+        self.app.fire('entitlement:testPassClaimed', {
+            code: data.code || '',
+            sent: !!data.sent
+        });
+        return data;
+    }).catch(function (err) {
+        self._claimBusy = false;
+        console.warn('[Entitlement] claimTestPass', err);
+        return null;
+    });
 };
 
 /** Google 綁定回跳後：若購買流程有留下 intent，自動開 Stripe */

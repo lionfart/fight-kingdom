@@ -161,6 +161,7 @@
         'hub.pass.redeeming': 'Redeeming…',
         'hub.pass.redeemOk': 'Redeemed! Character Pass activated.',
         'hub.pass.redeemFail': 'Redeem failed.',
+        'hub.pass.testClaimed': 'Promo code sent to your email!',
         'hub.auth.clearLocal': 'Clear Local Data',
         'hub.auth.clearLocalHint': 'Clears this device only; cloud account & pass stay',
         'hub.auth.section': 'Account',

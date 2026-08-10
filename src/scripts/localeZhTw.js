@@ -161,6 +161,7 @@
         'hub.pass.redeeming': '正在兌換…',
         'hub.pass.redeemOk': '兌換成功！武將通行證已啟用。',
         'hub.pass.redeemFail': '兌換失敗。',
+        'hub.pass.testClaimed': '促銷碼已寄至你的信箱！',
         'hub.auth.clearLocal': '清除本機資料',
         'hub.auth.clearLocalHint': '僅清除此裝置進度／登入狀態；雲端帳號與通行證不會刪除',
         'hub.auth.section': '帳號',

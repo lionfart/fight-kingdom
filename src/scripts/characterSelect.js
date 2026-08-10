@@ -422,6 +422,9 @@ CharacterSelect.prototype._buildProgressionBar = function() {
         if (self.currentState === 'brawler') self._renderBrawlerGrid();
         self._refreshPlayButton();
     });
+    this.app.on('entitlement:testPassClaimed', function () {
+        self._showUnlockToast(CharacterSelect.t('hub.pass.testClaimed'), true);
+    });
     this.app.on('entitlement:purchaseCancelled', function () {
         self._showUnlockToast(CharacterSelect.t('hub.pass.cancelled'), false);
     });

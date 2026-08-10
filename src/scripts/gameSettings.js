@@ -103,7 +103,7 @@ GameSettings._ensureI18n = function () {
                 return vars[k] != null ? String(vars[k]) : '{' + k + '}';
             });
         },
-        isEn: function () { return lang === 'en'; }
+        isEn: function () { return lang === 'en' || lang === 'tr'; }
     };
     // Late-bind locale packs if they ran before this stub
     if (window.__TK_LOCALE_ZH_TW__) {

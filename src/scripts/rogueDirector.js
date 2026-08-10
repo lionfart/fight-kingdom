@@ -51,7 +51,8 @@ RogueDirector.t = function (key, vars) {
 };
 
 RogueDirector.isEn = function () {
-    return !!(window.TKI18n && window.TKI18n.getLang && window.TKI18n.getLang() === 'en');
+    var lang = window.TKI18n && window.TKI18n.getLang ? window.TKI18n.getLang() : '';
+    return lang === 'en' || lang === 'tr';
 };
 
 // ── 初始化 ──────────────────────────────────────────────────────

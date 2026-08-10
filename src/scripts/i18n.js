@@ -120,7 +120,7 @@
         },
 
         isEn: function () {
-            return lang === 'en';
+            return lang === 'en' || lang === 'tr';
         },
 
         /** Convenience: pick zh vs en by current lang (strings or {zh,en}). */

@@ -520,7 +520,7 @@ WordSystem.prototype._locText = function(v) {
     if (window.TKI18n && typeof window.TKI18n.pick === 'function') return window.TKI18n.pick(v);
     if (typeof v === 'object') {
         var lang = (window.TKI18n && window.TKI18n.getLang && window.TKI18n.getLang()) || 'zh-TW';
-        if (lang === 'en') return String(v.en || v.zh || v['zh-TW'] || '');
+        if (lang === 'en' || lang === 'tr') return String(v.en || v.zh || v['zh-TW'] || '');
         return String(v.zh || v['zh-TW'] || v.en || '');
     }
     return '';

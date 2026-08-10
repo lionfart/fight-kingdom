@@ -1045,7 +1045,8 @@ BrawlerConfig.botArenaNames = {
 };
 
 BrawlerConfig._isEn = function () {
-    return !!(window.TKI18n && typeof window.TKI18n.getLang === 'function' && window.TKI18n.getLang() === 'en');
+    return !!(window.TKI18n && typeof window.TKI18n.getLang === 'function' &&
+        (window.TKI18n.getLang() === 'en' || window.TKI18n.getLang() === 'tr'));
 };
 
 BrawlerConfig.getDisplayZh = function (bType) {

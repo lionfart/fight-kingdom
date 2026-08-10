@@ -96,7 +96,7 @@ CharacterSelect._ensureI18n = function () {
                 return vars[k] != null ? String(vars[k]) : '{' + k + '}';
             });
         },
-        isEn: function () { return lang === 'en'; }
+        isEn: function () { return lang === 'en' || lang === 'tr'; }
     };
     if (window.__TK_LOCALE_ZH_TW__) {
         window.TKI18n.register('zh-TW', window.__TK_LOCALE_ZH_TW__);

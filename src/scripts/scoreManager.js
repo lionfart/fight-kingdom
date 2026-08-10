@@ -26,7 +26,7 @@ ScoreManager.prototype._pickText = function (v) {
     if (typeof v === 'string' || typeof v === 'number') return String(v);
     if (window.TKI18n && typeof window.TKI18n.pick === 'function') return window.TKI18n.pick(v);
     var lang = (window.TKI18n && window.TKI18n.getLang && window.TKI18n.getLang()) || 'zh-TW';
-    if (lang === 'en') return String(v.en || v.zh || '');
+    if (lang === 'en' || lang === 'tr') return String(v.en || v.zh || '');
     return String(v.zh || v.en || '');
 };
 

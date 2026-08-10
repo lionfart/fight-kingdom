@@ -32,12 +32,12 @@ GameSettings.isManualAimMode = function () {
 
 /**
  * Ensure TKI18n exists (stub if i18n.js missing).
- * String packs live in localeZhTw.js / localeEn.js — do not duplicate here.
+ * String packs live in localeZhTw.js / localeEn.js / localeTr.js — do not duplicate here.
  */
 GameSettings._ensureI18n = function () {
     if (window.TKI18n) return;
     var STORAGE_KEY = 'tk_lang';
-    var DEFAULT = 'zh-TW';
+    var DEFAULT = 'en';
     var packs = Object.create(null);
     var lang = DEFAULT;
 
@@ -51,15 +51,16 @@ GameSettings._ensureI18n = function () {
             }
         } catch (e) {}
         navLang = String(navLang || '').toLowerCase();
-        if (navLang.indexOf('en') === 0 || navLang.indexOf('en-') !== -1 || navLang.indexOf('en_') !== -1) return 'en';
         if (navLang.indexOf('zh') === 0 || navLang.indexOf('zh-') !== -1 || navLang.indexOf('zh_') !== -1) return 'zh-TW';
-        return DEFAULT;
+        if (navLang.indexOf('tr') === 0 || navLang.indexOf('tr-') !== -1 || navLang.indexOf('tr_') !== -1) return 'tr';
+        return 'en';
     }
 
     try {
         var saved = localStorage.getItem(STORAGE_KEY);
         if (saved === 'en') lang = 'en';
         else if (saved === 'zh-TW' || saved === 'zh') lang = 'zh-TW';
+        else if (saved === 'tr' || saved === 'tr-TR') lang = 'tr';
         else if (!saved) {
             lang = inferInitialLang();
             try { localStorage.setItem(STORAGE_KEY, lang); } catch (e2) {}
@@ -68,7 +69,7 @@ GameSettings._ensureI18n = function () {
     window.TKI18n = {
         STORAGE_KEY: STORAGE_KEY,
         DEFAULT: DEFAULT,
-        SUPPORTED: ['zh-TW', 'en'],
+        SUPPORTED: ['zh-TW', 'en', 'tr'],
         register: function (locale, dict) {
             if (!locale || !dict) return;
             var prev = packs[locale];
@@ -79,7 +80,7 @@ GameSettings._ensureI18n = function () {
         },
         getLang: function () { return lang; },
         setLang: function (next) {
-            if (next !== 'zh-TW' && next !== 'en') return lang;
+            if (next !== 'zh-TW' && next !== 'en' && next !== 'tr') return lang;
             var changed = next !== lang;
             lang = next;
             try { localStorage.setItem(STORAGE_KEY, lang); } catch (e1) {}
@@ -112,6 +113,10 @@ GameSettings._ensureI18n = function () {
     if (window.__TK_LOCALE_EN__) {
         window.TKI18n.register('en', window.__TK_LOCALE_EN__);
         try { delete window.__TK_LOCALE_EN__; } catch (e4) { window.__TK_LOCALE_EN__ = null; }
+    }
+    if (window.__TK_LOCALE_TR__) {
+        window.TKI18n.register('tr', window.__TK_LOCALE_TR__);
+        try { delete window.__TK_LOCALE_TR__; } catch (e5) { window.__TK_LOCALE_TR__ = null; }
     }
 };
 
@@ -920,7 +925,8 @@ GameSettings.prototype._populateLangSelect = function() {
     var self = this;
     var options = [
         { id: 'zh-TW', key: 'settings.lang.zh' },
-        { id: 'en', key: 'settings.lang.en' }
+        { id: 'en', key: 'settings.lang.en' },
+        { id: 'tr', key: 'settings.lang.tr' }
     ];
 
     for (var i = 0; i < options.length; i++) {
@@ -943,8 +949,8 @@ GameSettings.prototype._populateLangSelect = function() {
 GameSettings.prototype._syncLangSelect = function() {
     var currentDisplay = document.getElementById('gs-lang-current');
     if (!currentDisplay) return;
-    var lang = (window.TKI18n && window.TKI18n.getLang) ? window.TKI18n.getLang() : 'zh-TW';
-    currentDisplay.innerText = GameSettings.t(lang === 'en' ? 'settings.lang.en' : 'settings.lang.zh');
+    var lang = (window.TKI18n && window.TKI18n.getLang) ? window.TKI18n.getLang() : 'en';
+    currentDisplay.innerText = GameSettings.t(lang === 'en' ? 'settings.lang.en' : (lang === 'tr' ? 'settings.lang.tr' : 'settings.lang.zh'));
 };
 
 GameSettings.prototype._setLang = function(langId) {

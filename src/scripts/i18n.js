@@ -5,8 +5,8 @@
  */
 (function (global) {
     var STORAGE_KEY = 'tk_lang';
-    var DEFAULT = 'zh-TW';
-    var SUPPORTED = { 'zh-TW': true, en: true };
+    var DEFAULT = 'en';
+    var SUPPORTED = { 'zh-TW': true, en: true, tr: true };
 
     var packs = Object.create(null);
     var lang = DEFAULT;
@@ -21,9 +21,9 @@
             }
         } catch (e) {}
         navLang = String(navLang || '').toLowerCase();
-        if (navLang.indexOf('en') === 0 || navLang.indexOf('en-') !== -1 || navLang.indexOf('en_') !== -1) return 'en';
         if (navLang.indexOf('zh') === 0 || navLang.indexOf('zh-') !== -1 || navLang.indexOf('zh_') !== -1) return 'zh-TW';
-        return DEFAULT;
+        if (navLang.indexOf('tr') === 0 || navLang.indexOf('tr-') !== -1 || navLang.indexOf('tr_') !== -1) return 'tr';
+        return 'en';
     }
 
     function readStored() {
@@ -31,6 +31,7 @@
             var saved = localStorage.getItem(STORAGE_KEY);
             if (saved === 'en') return 'en';
             if (saved === 'zh-TW' || saved === 'zh') return 'zh-TW';
+            if (saved === 'tr' || saved === 'tr-TR' || saved === 'tr-tr') return 'tr';
             if (saved && SUPPORTED[saved]) return saved;
         } catch (e) {}
 
@@ -58,7 +59,7 @@
     var TKI18n = {
         STORAGE_KEY: STORAGE_KEY,
         DEFAULT: DEFAULT,
-        SUPPORTED: ['zh-TW', 'en'],
+        SUPPORTED: ['zh-TW', 'en', 'tr'],
 
         register: function (locale, dict) {
             if (!locale || !dict || typeof dict !== 'object') return;
@@ -84,7 +85,8 @@
             try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
             try {
                 if (typeof document !== 'undefined' && document.documentElement) {
-                    document.documentElement.setAttribute('lang', lang === 'zh-TW' ? 'zh-Hant' : 'en');
+                    var htmlLang = lang === 'zh-TW' ? 'zh-Hant' : (lang === 'tr' ? 'tr' : 'en');
+                    document.documentElement.setAttribute('lang', htmlLang);
                 }
             } catch (e2) {}
             if (changed) {
@@ -124,14 +126,15 @@
         /** Convenience: pick zh vs en by current lang (strings or {zh,en}). */
         tx: function (zh, en) {
             if (zh != null && typeof zh === 'object') return TKI18n.pick(zh);
-            return lang === 'en' ? (en != null ? en : zh) : zh;
+            if (lang === 'zh-TW' || lang === 'zh') return zh;
+            return (en != null ? en : zh);
         }
     };
 
     // Apply html lang once at boot
     try {
         if (typeof document !== 'undefined' && document.documentElement) {
-            document.documentElement.setAttribute('lang', lang === 'zh-TW' ? 'zh-Hant' : 'en');
+            document.documentElement.setAttribute('lang', lang === 'zh-TW' ? 'zh-Hant' : (lang === 'tr' ? 'tr' : 'en'));
         }
     } catch (e) {}
 
@@ -145,5 +148,9 @@
     if (global.__TK_LOCALE_EN__) {
         TKI18n.register('en', global.__TK_LOCALE_EN__);
         try { delete global.__TK_LOCALE_EN__; } catch (e5) { global.__TK_LOCALE_EN__ = null; }
+    }
+    if (global.__TK_LOCALE_TR__) {
+        TKI18n.register('tr', global.__TK_LOCALE_TR__);
+        try { delete global.__TK_LOCALE_TR__; } catch (e6) { global.__TK_LOCALE_TR__ = null; }
     }
 })(typeof window !== 'undefined' ? window : this);

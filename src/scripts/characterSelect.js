@@ -35,13 +35,14 @@ CharacterSelect._ensureI18n = function () {
     if (window.TKI18n) return;
     // Minimal stub if neither i18n nor gameSettings loaded yet
     var STORAGE_KEY = 'tk_lang';
-    var DEFAULT = 'zh-TW';
+    var DEFAULT = 'en';
     var packs = Object.create(null);
     var lang = DEFAULT;
     try {
         var saved = localStorage.getItem(STORAGE_KEY);
         if (saved === 'zh-TW' || saved === 'zh') lang = 'zh-TW';
         else if (saved === 'en') lang = 'en';
+        else if (saved === 'tr' || saved === 'tr-TR') lang = 'tr';
         else if (!saved) {
             var navLang = '';
             try {
@@ -52,17 +53,16 @@ CharacterSelect._ensureI18n = function () {
                 }
             } catch (e2) {}
             navLang = String(navLang || '').toLowerCase();
-            if (navLang.indexOf('en') === 0) lang = 'en';
-            else if (navLang.indexOf('en-') !== -1 || navLang.indexOf('en_') !== -1) lang = 'en';
-            else if (navLang.indexOf('zh') !== -1) lang = 'zh-TW';
-            else lang = DEFAULT;
+            if (navLang.indexOf('zh') !== -1) lang = 'zh-TW';
+            else if (navLang.indexOf('tr') === 0 || navLang.indexOf('tr-') !== -1 || navLang.indexOf('tr_') !== -1) lang = 'tr';
+            else lang = 'en';
             try { localStorage.setItem(STORAGE_KEY, lang); } catch (e3) {}
         }
     } catch (e) {}
     window.TKI18n = {
         STORAGE_KEY: STORAGE_KEY,
         DEFAULT: DEFAULT,
-        SUPPORTED: ['zh-TW', 'en'],
+        SUPPORTED: ['zh-TW', 'en', 'tr'],
         register: function (locale, dict) {
             if (!locale || !dict) return;
             var prev = packs[locale];
@@ -73,7 +73,7 @@ CharacterSelect._ensureI18n = function () {
         },
         getLang: function () { return lang; },
         setLang: function (next) {
-            if (next !== 'zh-TW' && next !== 'en') return lang;
+            if (next !== 'zh-TW' && next !== 'en' && next !== 'tr') return lang;
             var changed = next !== lang;
             lang = next;
             try { localStorage.setItem(STORAGE_KEY, lang); } catch (e1) {}
@@ -105,6 +105,10 @@ CharacterSelect._ensureI18n = function () {
     if (window.__TK_LOCALE_EN__) {
         window.TKI18n.register('en', window.__TK_LOCALE_EN__);
         try { delete window.__TK_LOCALE_EN__; } catch (e4) { window.__TK_LOCALE_EN__ = null; }
+    }
+    if (window.__TK_LOCALE_TR__) {
+        window.TKI18n.register('tr', window.__TK_LOCALE_TR__);
+        try { delete window.__TK_LOCALE_TR__; } catch (e5) { window.__TK_LOCALE_TR__ = null; }
     }
 };
 

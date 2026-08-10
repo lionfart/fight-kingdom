@@ -124,15 +124,18 @@ pc.script.createLoadingScreen(function (app) {
                 }
             } catch (eNav) {}
             navLang = String(navLang || '').toLowerCase();
-            var inferred = (navLang.indexOf('en') === 0 || navLang.indexOf('en-') !== -1 || navLang.indexOf('en_') !== -1) ? 'en' : 'zh-TW';
+            var inferred = 'en';
+            if (navLang.indexOf('zh') === 0 || navLang.indexOf('zh-') !== -1 || navLang.indexOf('zh_') !== -1) inferred = 'zh-TW';
+            else if (navLang.indexOf('tr') === 0 || navLang.indexOf('tr-') !== -1 || navLang.indexOf('tr_') !== -1) inferred = 'tr';
             localStorage.setItem('tk_lang', inferred);
         }
     } catch (e) {}
 
     var splashLang = (function () {
-        try { return localStorage.getItem('tk_lang') === 'en' ? 'en' : 'zh'; } catch (e) { return 'zh'; }
+        try { return localStorage.getItem('tk_lang'); } catch (e) { return 'en'; }
     })();
-    var splashPick = function (zh, en) { return splashLang === 'en' ? en : zh; };
+    if (splashLang !== 'en' && splashLang !== 'tr' && splashLang !== 'zh-TW' && splashLang !== 'zh') splashLang = 'en';
+    var splashPick = function (zh, en) { return (splashLang === 'tr' || splashLang === 'en') ? en : zh; };
 
     // 頁面底色與 splash 一致，reload 空隙不閃白
     try {
@@ -347,7 +350,7 @@ pc.script.createLoadingScreen(function (app) {
 
     var stampCount = 0;
 
-    var idleStages = splashLang === 'en' ? {
+    var idleStages = (splashLang === 'en' || splashLang === 'tr') ? {
         early: [
             'The army is assembling.',
             'That persistence — you\'ll need it on the field.',
@@ -396,7 +399,7 @@ pc.script.createLoadingScreen(function (app) {
     var stagePtr = 0;
     var lastStage = null;
 
-    var tips = splashLang === 'en' ? [
+    var tips = (splashLang === 'en' || splashLang === 'tr') ? [
         'Drag with one finger to move — auto-aims the nearest foe',
         'Dodge well to slip past enemy burst skills',
         'Hide in brush, then strike from the shadows',

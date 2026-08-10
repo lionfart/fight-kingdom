@@ -11,6 +11,7 @@
         'settings.language': 'Language',
         'settings.lang.zh': '繁中',
         'settings.lang.en': 'English',
+        'settings.lang.tr': 'Türkçe',
         'settings.camera': 'Camera',
         'settings.quality': 'Quality',
         'settings.quality.low': 'Low',

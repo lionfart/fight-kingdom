@@ -42,7 +42,10 @@ NetworkManager.prototype.initialize = function() {
             if (this.app.playerController) {
                 shootData.b = this.app.playerController.brawlerType;
             }
+            console.log("[NetSnd] shoot a=" + shootData.a + " cIdx=" + shootData.cIdx + " isSuper=" + shootData.isSuper);
             this.socket.emit('playerShoot', shootData); 
+        } else {
+            console.log("[NetSnd] shoot SKIPPED (socket yok)");
         }
     }, this);
 
@@ -52,7 +55,12 @@ NetworkManager.prototype.initialize = function() {
 
     // ğŸŒŸ è½‰ç™¼ rollï¼ˆç¿»æ»¾ï¼‰çµ¦ server
     this.app.on('network:roll', (rollData) => {
-        if (this.socket && this.socket.connected) { this.socket.emit('playerRoll', rollData); }
+        if (this.socket && this.socket.connected) { 
+            console.log("[NetSnd] roll a=" + rollData.a + " tx=" + rollData.tx + " tz=" + rollData.tz);
+            this.socket.emit('playerRoll', rollData); 
+        } else {
+            console.log("[NetSnd] roll SKIPPED (socket yok)");
+        }
     }, this);
 
     // ğŸŒŸ è½‰ç™¼ç©å®¶ç‹€æ…‹ï¼ˆDOT/stunï¼‰çµ¦ server
@@ -137,7 +145,11 @@ NetworkManager.prototype._onStartRoomGame = function(roomId) {
 };
 
 NetworkManager.prototype._connectToServer = function(actionType) {
-    if (typeof io === 'undefined') return;
+    if (typeof io === 'undefined') {
+        console.error('[NetworkManager] io NOT DEFINED — socket.io script failed to load');
+        return;
+    }
+    console.log('[NetworkManager] connecting url=' + this.serverUrl + ' action=' + actionType);
 
     if (this.socket) {
         this.socket.removeAllListeners();
@@ -151,6 +163,7 @@ NetworkManager.prototype._connectToServer = function(actionType) {
     });
 
     this.socket.on('connect', () => {
+        console.log('[NetworkManager] CONNECTED sid=' + this.socket.id);
         this.app.myId = this.socket.id;
         this.app.socketId = this.socket.id;
         if (actionType === 'matchmaking') this._joinMatchmaking(); 
@@ -158,7 +171,11 @@ NetworkManager.prototype._connectToServer = function(actionType) {
         else if (actionType === 'join_room') this._emitJoinRoom();
     });
 
-    this.socket.on('room_created', (data) => { this.app.fire('lobby:roomCreated', data); });
+    this.socket.on('connect_error', (err) => {
+        console.error('[NetworkManager] connect_error', err && err.message, err && err.description ? err.description : '');
+    });
+
+    this.socket.on('room_created', (data) => { console.log('[NetworkManager] room_created', JSON.stringify(data)); this.app.fire('lobby:roomCreated', data); });
     this.socket.on('room_joined', (data) => { this.app.fire('lobby:roomJoined', data); });
     
     this.socket.on('room_update', (data) => {
@@ -181,10 +198,13 @@ NetworkManager.prototype._connectToServer = function(actionType) {
     });
 
     this.socket.on('match_found', (data) => { this.app.fire('lobby:matchFound', data); });
-    this.socket.on('game_start', () => { console.log("âš”ï¸ [è»ä»¤ç‹€] å…¨å“¡å°±ç·’ï¼Œæˆ°é¬¥é–‹å§‹ï¼"); });
+    this.socket.on('game_start', (data) => {
+        console.log("âš”ï¸ [è»ä»¤ç‹€] å…¨å“¡å°±ç·’ï¼Œæˆ°é¬¥é–‹å§‹ï¼");
+        this.app.fire('lobby:matchFound', data || {});
+    });
     this.socket.on('enemyMoved', (enemyData) => { this.app.fire('network:enemyMoved', enemyData); });
-    this.socket.on('enemyShot', (data) => { this.app.fire('network:enemyShot', data); });
-    this.socket.on('enemyRoll', (data) => { this.app.fire('network:enemyRoll', data); });   // ğŸŒŸ å°æ–¹ç¿»æ»¾
+    this.socket.on('enemyShot', (data) => { console.log("[NetRcv] enemyShot a=" + data.a + " cIdx=" + data.cIdx + " isSuper=" + data.isSuper); this.app.fire('network:enemyShot', data); });
+    this.socket.on('enemyRoll', (data) => { console.log("[NetRcv] enemyRoll a=" + data.a); this.app.fire('network:enemyRoll', data); });   // ğŸŒŸ å°æ–¹ç¿»æ»¾
     this.socket.on('enemyState', (data) => { this.app.fire('network:enemyState', data); });   // ğŸŒŸ å°æ–¹ç‹€æ…‹(DOT/stun)
 
     this.socket.on('server:confirmHit', (data) => {

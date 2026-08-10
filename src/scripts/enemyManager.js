@@ -680,6 +680,7 @@ EnemyManager.prototype._onEnemyState = function(data) {
 
 EnemyManager.prototype._onEnemyRoll = function(data) {
     var enemy = this.enemies[data.id];
+    console.log("[Enemy] apply roll id=" + data.id + " enemy var mi=" + !!enemy);
     if (!enemy || enemy.hp <= 0 || enemy.s === 3) return;
 
     if (enemy.animEntity && enemy.animEntity.anim) {
@@ -702,6 +703,7 @@ EnemyManager.prototype._setPvpThreatTimer = function (enemy, atkConf) {
 
 EnemyManager.prototype._onEnemyShot = function(data) {
     var enemy = this.enemies[data.id];
+    console.log("[Enemy] apply shot id=" + data.id + " enemy var mi=" + !!enemy);
     if (!enemy) return;
 
     // 變身同步（貂蟬機甲）

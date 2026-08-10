@@ -2,16 +2,16 @@ var ScoreManager = pc.createScript('scoreManager');
 
 // PvP bot 競技場顯示名（內建於 scoreManager，避免 brawlerConfig 同步遺失 helper）
 var BOT_ARENA_NAMES = {
-    lubu: { zh: '奉先弒天', en: 'Fengxian Ascendant' },
-    guanyu: { zh: '武聖弒神', en: 'Saint Godslayer' },
-    caocao: { zh: '魔王孟德', en: 'Demon Lord Mengde' },
-    zhangliao: { zh: '文遠夜襲', en: 'Wenyuan Night Raid' },
-    zhangjiao: { zh: '黃天業火', en: 'Yellow Heaven Inferno' },
-    zhouyu: { zh: '臥龍幽冥', en: 'Nether Strategist' },
-    sunquan: { zh: '江東霸業', en: 'Jiangdong Hegemony' },
-    zhangfei: { zh: '萬人敵狂', en: 'Peerless Fury' },
-    diaochan: { zh: '閉月傾城', en: 'Moonveil Enchantress' },
-    liubei: { zh: '仁德昭烈', en: 'Benevolent Zhaolie' }
+    lubu: { zh: '奉先弒天', en: 'Fengxian Ascendant', tr: 'Fengxian Yükselişi' },
+    guanyu: { zh: '武聖弒神', en: 'Saint Godslayer', tr: 'Aziz Tanrı Katili' },
+    caocao: { zh: '魔王孟德', en: 'Demon Lord Mengde', tr: 'Şeytan Lord Mengde' },
+    zhangliao: { zh: '文遠夜襲', en: 'Wenyuan Night Raid', tr: 'Wenyuan Gece Baskını' },
+    zhangjiao: { zh: '黃天業火', en: 'Yellow Heaven Inferno', tr: 'Sarı Gök Cehennemi' },
+    zhouyu: { zh: '臥龍幽冥', en: 'Nether Strategist', tr: 'Gizli Stratejist' },
+    sunquan: { zh: '江東霸業', en: 'Jiangdong Hegemony', tr: 'Jiangdong Hegemonyası' },
+    zhangfei: { zh: '萬人敵狂', en: 'Peerless Fury', tr: 'Emsalsiz Gazap' },
+    diaochan: { zh: '閉月傾城', en: 'Moonveil Enchantress', tr: 'Ay Tülü Büyücü' },
+    liubei: { zh: '仁德昭烈', en: 'Benevolent Zhaolie', tr: 'Erdemli Zhaolie' }
 };
 
 ScoreManager.t = function (key, vars) {

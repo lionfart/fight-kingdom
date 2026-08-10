@@ -1032,16 +1032,128 @@ var BrawlerConfig = {
 
 // PvP bot 競技場顯示名（與 scoreManager.BOT_ARENA_NAMES 同步）
 BrawlerConfig.botArenaNames = {
-    lubu: { zh: '奉先弒天', en: 'Fengxian Ascendant' },
-    guanyu: { zh: '武聖弒神', en: 'Saint Godslayer' },
-    caocao: { zh: '魔王孟德', en: 'Demon Lord Mengde' },
-    zhangliao: { zh: '文遠夜襲', en: 'Wenyuan Night Raid' },
-    zhangjiao: { zh: '黃天業火', en: 'Yellow Heaven Inferno' },
-    zhouyu: { zh: '臥龍幽冥', en: 'Nether Strategist' },
-    sunquan: { zh: '江東霸業', en: 'Jiangdong Hegemony' },
-    zhangfei: { zh: '萬人敵狂', en: 'Peerless Fury' },
-    diaochan: { zh: '閉月傾城', en: 'Moonveil Enchantress' },
-    liubei: { zh: '仁德昭烈', en: 'Benevolent Zhaolie' }
+    lubu: { zh: '奉先弒天', en: 'Fengxian Ascendant', tr: 'Fengxian Yükselişi' },
+    guanyu: { zh: '武聖弒神', en: 'Saint Godslayer', tr: 'Aziz Tanrı Katili' },
+    caocao: { zh: '魔王孟德', en: 'Demon Lord Mengde', tr: 'Şeytan Lord Mengde' },
+    zhangliao: { zh: '文遠夜襲', en: 'Wenyuan Night Raid', tr: 'Wenyuan Gece Baskını' },
+    zhangjiao: { zh: '黃天業火', en: 'Yellow Heaven Inferno', tr: 'Sarı Gök Cehennemi' },
+    zhouyu: { zh: '臥龍幽冥', en: 'Nether Strategist', tr: 'Gizli Stratejist' },
+    sunquan: { zh: '江東霸業', en: 'Jiangdong Hegemony', tr: 'Jiangdong Hegemonyası' },
+    zhangfei: { zh: '萬人敵狂', en: 'Peerless Fury', tr: 'Emsalsiz Gazap' },
+    diaochan: { zh: '閉月傾城', en: 'Moonveil Enchantress', tr: 'Ay Tülü Büyücü' },
+    liubei: { zh: '仁德昭烈', en: 'Benevolent Zhaolie', tr: 'Erdemli Zhaolie' }
+};
+
+BrawlerConfig._isTr = function () {
+    return !!(window.TKI18n && typeof window.TKI18n.getLang === 'function' && window.TKI18n.getLang() === 'tr');
+};
+
+BrawlerConfig.getTrText = function (bType) {
+    return (BrawlerConfig._isTr() && BrawlerConfig.trText && BrawlerConfig.trText[bType]) ? BrawlerConfig.trText[bType] : null;
+};
+
+// Türkçe arayüz metinleri（kadro isimleri、bio、saldırı/Ulti açıklamaları）
+BrawlerConfig.trText = {
+    zhouyu: {
+        display: 'Zhou Yu',
+        title: 'Yakışıklı Zhou',
+        role: 'Alan',
+        desc: 'Jiangdong\'un ateş delisi komutanı. Alan kontrolünün ustası; alev ve sıçrama mekanikleriyle düşmanları yangın denizinde kıstırır.',
+        attackDesc: 'Üç vuruşlu ateş salvoları: düşmanları tutuşturur; yanan hedeflere sıçar ve közleri patlatır.',
+        superDesc: 'Beşli ateş patlaması—öndekileri sersemletir ve geri iter; çalıları da yakar.'
+    },
+    caocao: {
+        display: 'Cao Cao',
+        title: 'Kaos Kahramanı',
+        role: 'Hasar',
+        desc: 'Savaş alanını asla soğutmayan acımasız kaos kahramanı. Her vuruşta gücü katlanan bir atıcı; aşırı yakıcı hasarla ön hattı eritir.',
+        attackDesc: 'Üç salvo üst üste yanık katar: Yanık → Alev → Cehennem—her vuruşta daha da ısınır.',
+        superDesc: 'Göz açıp kapayıncaya dek kaybol, geride bölgeyi mahveden patlayıcı bir yem bırak.'
+    },
+    guanyu: {
+        display: 'Guan Yu',
+        title: 'Savaş Tanrısı',
+        role: 'Tank',
+        desc: 'Efsanevi hilal bıçağını kuşanan Savaş Tanrısı. Yavaşlatma, dolduruş ve alan sersemletmesi olan çok yönlü öncü tank—mesafeyi kapattığı an iş biter.',
+        attackDesc: 'Yakın dövüş üçlüsü: süpüren yavaşlatma, delen dolduruş, bitiren sersemletme kılıcı.',
+        superDesc: 'Ejder savuşu hattı deler—ağır hasar ve yol üstündeki çalılar yanar.'
+    },
+    zhangjiao: {
+        display: 'Zhang Jiao',
+        title: 'Büyük Üstat',
+        role: 'Hasar',
+        desc: 'Sarı Türban dalgasını başlatan Büyük Üstat. Çağrılanlar ve hedefi kovalayan büyülerle düşmanları boğan bölge mage\'i; konum ve mesafe oyunu şart.',
+        attackDesc: 'Mühürlerle çağrıları ve uzak ayinleri yönetir—Sarı Türban dalgası senin için savaşır.',
+        superDesc: 'Dev bir arayıcı ruh çağır—kurtulanları yavaşlatan büyük patlama.'
+    },
+    sunquan: {
+        display: 'Sun Quan',
+        title: 'Jiangdong Lordu',
+        role: 'Komuta',
+        desc: 'Sağlam adımlı Wu lordu. Kontrol odaklı lider; ağır oklar ve halka barajlarıyla düşmanı kendi temposunda savaşmaya zorlar.',
+        attackDesc: 'Sakin uzak komuta: ağır oklar, yelpaze yayılımları, ardından bölgeyi kilitleyen halka barajı.',
+        superDesc: 'Gök yağmuru ateşi birden çok düşmanı işaretler—patlamalar yakar ve çalıları temizler.'
+    },
+    lubu: {
+        display: 'Lu Bu',
+        title: 'Uçan General',
+        role: 'Yakın Dövüş',
+        desc: 'Tartışmasız zirve savaşçısı. Kanayan ağır vuruşlarıyla saf yakın dövüş patlama makinesi—kasırgasına yakalanan için çıkış yok.',
+        attackDesc: 'Baltalı yakın dövüş komboları; ağır vuruşlar kanama uygulayabilir.',
+        superDesc: 'Ölümcül bir kasırgaya dönüş—anında on ezici vuruş.'
+    },
+    zhangfei: {
+        display: 'Zhang Fei',
+        title: 'Emsalsiz',
+        role: 'Tank',
+        desc: 'Sesi gücü kadar güçlü bir hat kırıcı. Takım savaşlarını zorla başlatmak için kurulmuş ağır dövüşçü; kükreyen Ulti\'siyle düşman dizilişini paramparça eder.',
+        attackDesc: 'Ağır mızrak yakın dövüş komboları—yakındakilere kaba kuvvet.',
+        superDesc: 'Dört sağır edici aslan kükremesi—çalıları temizler, sersemletir ve geri iter.'
+    },
+    diaochan: {
+        display: 'Diao Chan',
+        title: 'Ay Tutulması',
+        role: 'Keskin Nişancı',
+        desc: 'Nefes kesen görüntüsünün ardındaki ağır nişancı. Mermi kıt ve atış hızı çok yavaş; ama tek bir patlayıcı atış düşman hattını yerle bir etmeye yeter.',
+        attackDesc: 'Ultra uzak patlayıcı atışlar—yavaş, kıt mermi, isabet edince alan patlaması.',
+        superDesc: 'Lu Bu\'ya dönüş—devasa canı ve çılgın yakın dövüş kombolarıyla vücut bulmuş korku.'
+    },
+    liubei: {
+        display: 'Liu Bei',
+        title: 'Hırslı Lord',
+        role: 'Savaşçı',
+        desc: 'Sözleri erdemden bahseden ama vuruşları herkesten hızlı olan hırslı lord. Yüksek hareketli suikastçı; çift dolduruşla dalar, ağır kılıcıyla öldürür, sonra süratle kaçar.',
+        attackDesc: 'Çift bıçak dolduruş komboları: iki atak, kanatan ve geri iten bitirici kılıç.',
+        superDesc: 'Acil kaçış: ileriye yavaşlatan ağ yelpazesi, ardından geri tepmeyle tehlike bölgesinden fırla.'
+    },
+    zhangliao: {
+        display: 'Zhang Liao',
+        title: 'Sessize Alan',
+        role: 'Hasar',
+        desc: 'Xiaoyaojin\'in terörü. Dolduruş kılıçlarıyla düşman kombolarını kesen agresif akıncı; gidiş-dönüş bıçaklarıyla kaçanları bitirir.',
+        attackDesc: 'Açılış dolduruşu savunmayı kırar; kavisli bıçaklar gidiş ve dönüşte iki kez vurur.',
+        superDesc: 'Göz kamaştırıcı hızla ileri atıl—düşman kombolarını kes.'
+    },
+    zhangbao: {
+        display: 'Yellow Bros',
+        title: 'Sarı Gök Yükseliyor',
+        role: 'Dönüşüm',
+        desc: 'Üç kardeş, tek yumruk. Ulti ile yakın dövüş, fırlatma ve ok formları arasında serbestçe geçiş yaparak her duruma uyum sağlar.',
+        attackDesc: 'Yakın dövüş formu: cepheyi tutan yakın mesafe kılıçları.',
+        superDesc: 'Türban silahlarını değiştir: Fırlatma → Ok → Yakın dövüş. Üç form, tek can barı.'
+    }
+};
+
+BrawlerConfig.trSkinText = {
+    zhouyu_skin_01: {
+        desc: '40 yaşında hâlâ güzel genç kız mıyım? Elimde bolca iç ateş var.'
+    },
+    guanyu_skin_01: {
+        desc: '52 yaşında. Sham Shui Po\'daki sitede güvenlik görevlisi. Otuz yıl gece vardiyası. Kimse onu adıyla çağırmadı. Peşini bırakmayan savaş alanından önceki gerçek Bay Kwan işte bu. Dizleri kötü, beli kötü, görünmez. Ama gerçek.'
+    },
+    zhangjiao_skin_01: {
+        desc: '58 yaşında. Her pazartesi gecesi geç saatte canlı yayın açar. Terapist değil—sadece dinlemeye hazır biri. Yıllardır böyle; sayısız insana en karanlık gecelerinde eşlik etti.'
+    }
 };
 
 BrawlerConfig._isEn = function () {
@@ -1085,8 +1197,12 @@ BrawlerConfig.getDisplayName = function (bType, options) {
     var cfg = BrawlerConfig[bType];
     if (!cfg) return 'Unknown';
     if (options.botArena && BrawlerConfig.botArenaNames && BrawlerConfig.botArenaNames[bType]) {
-        return BrawlerConfig.botArenaNames[bType];
+        var ban = BrawlerConfig.botArenaNames[bType];
+        if (BrawlerConfig._isTr() && ban.tr) return ban.tr;
+        return ban.en || ban.zh;
     }
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.display) return tr.display;
     if (BrawlerConfig._isEn()) {
         if (cfg.displayEn) return cfg.displayEn;
         if (cfg.select && cfg.select.en) return cfg.select.en;
@@ -1097,6 +1213,8 @@ BrawlerConfig.getDisplayName = function (bType, options) {
 BrawlerConfig.getSelectTitle = function (bType) {
     var cfg = BrawlerConfig[bType];
     if (!cfg || !cfg.select) return '';
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.title) return tr.title;
     if (BrawlerConfig._isEn() && cfg.select.titleEn) return cfg.select.titleEn;
     return cfg.select.title || '';
 };
@@ -1104,6 +1222,8 @@ BrawlerConfig.getSelectTitle = function (bType) {
 BrawlerConfig.getSelectRole = function (bType) {
     var cfg = BrawlerConfig[bType];
     if (!cfg || !cfg.select) return '';
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.role) return tr.role;
     if (BrawlerConfig._isEn() && cfg.select.roleEn) return cfg.select.roleEn;
     return cfg.select.role || '';
 };
@@ -1113,9 +1233,14 @@ BrawlerConfig.getDescription = function (bType, skinKey) {
     if (!cfg) return '';
     var skin = skinKey ? BrawlerConfig.getSkinDef(skinKey) : null;
     if (skin) {
+        if (BrawlerConfig._isTr() && BrawlerConfig.trSkinText && BrawlerConfig.trSkinText[skinKey] && BrawlerConfig.trSkinText[skinKey].desc) {
+            return BrawlerConfig.trSkinText[skinKey].desc;
+        }
         if (BrawlerConfig._isEn() && skin.descriptionEn) return skin.descriptionEn;
         if (skin.description) return skin.description;
     }
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.desc) return tr.desc;
     if (BrawlerConfig._isEn() && cfg.descriptionEn) return cfg.descriptionEn;
     return cfg.description || '';
 };
@@ -1125,9 +1250,14 @@ BrawlerConfig.getAttackDesc = function (bType, skinKey) {
     if (!cfg) return '';
     var skin = skinKey ? BrawlerConfig.getSkinDef(skinKey) : null;
     if (skin) {
+        if (BrawlerConfig._isTr() && BrawlerConfig.trSkinText && BrawlerConfig.trSkinText[skinKey] && BrawlerConfig.trSkinText[skinKey].attackDesc) {
+            return BrawlerConfig.trSkinText[skinKey].attackDesc;
+        }
         if (BrawlerConfig._isEn() && skin.attackDescEn) return skin.attackDescEn;
         if (skin.attackDesc) return skin.attackDesc;
     }
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.attackDesc) return tr.attackDesc;
     if (BrawlerConfig._isEn() && cfg.attackDescEn) return cfg.attackDescEn;
     return cfg.attackDesc || '';
 };
@@ -1137,6 +1267,9 @@ BrawlerConfig.getSuperDesc = function (bType, skinKey) {
     if (!cfg) return '';
     var skin = skinKey ? BrawlerConfig.getSkinDef(skinKey) : null;
     if (skin) {
+        if (BrawlerConfig._isTr() && BrawlerConfig.trSkinText && BrawlerConfig.trSkinText[skinKey] && BrawlerConfig.trSkinText[skinKey].superDesc) {
+            return BrawlerConfig.trSkinText[skinKey].superDesc;
+        }
         if (BrawlerConfig._isEn() && skin.superDescEn) return skin.superDescEn;
         if (skin.superDesc) return skin.superDesc;
         if (skin.super) {
@@ -1145,6 +1278,8 @@ BrawlerConfig.getSuperDesc = function (bType, skinKey) {
         }
     }
     if (!cfg.super) return '';
+    var tr = BrawlerConfig.getTrText(bType);
+    if (tr && tr.superDesc) return tr.superDesc;
     if (BrawlerConfig._isEn() && cfg.super.descEn) return cfg.super.descEn;
     return cfg.super.desc || '';
 };

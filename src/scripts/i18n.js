@@ -113,7 +113,7 @@
             if (typeof obj === 'string' || typeof obj === 'number') return String(obj);
             if (typeof obj !== 'object') return '';
             if (obj[lang] != null) return String(obj[lang]);
-            if (lang === 'en' && obj.en != null) return String(obj.en);
+            if (lang !== 'zh-TW' && obj.en != null) return String(obj.en);
             if (obj['zh-TW'] != null) return String(obj['zh-TW']);
             if (obj.zh != null) return String(obj.zh);
             return '';

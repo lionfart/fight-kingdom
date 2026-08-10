@@ -25,6 +25,39 @@ CharacterSelect.attributes.add('maxPixelRatioCap', { type: 'number', default: 1.
 CharacterSelect.GAME_NAME = 'Fight Kingdom';
 CharacterSelect.SUPPORT_EMAIL = 'YOUR_EMAIL@example.com';   // ← 改成你的聯絡信箱
 CharacterSelect.PRIVACY_UPDATED = '2026-08-10';
+CharacterSelect.GAME_VERSION = '1.0.0';
+
+/**
+ * Değişiklik günlüğü — en yeni sürüm en üstte.
+ * items her satır { tr, en, 'zh-TW' } olabilir; eksik dil en'e düşer.
+ */
+CharacterSelect.CHANGELOG = [
+    {
+        version: '1.0.0',
+        date: '2026-08-11',
+        items: [
+            { tr: 'Google hesabı ile bağlanma geri getirildi — ilerleme ve Karakter Geçişi bulutla senkronlanır.', en: 'Google account linking restored — progress and Character Pass now sync to the cloud.', 'zh-TW': 'Google 帳號綁定已恢復 — 進度與武將通行證雲端同步。' },
+            { tr: 'Test kampanyası: Google ile bağlanan her hesaba e-postayla benzersiz TKPASS promosyon kodu gönderilir (tüm ücretli savaşçıları açar).', en: 'Test campaign: every Google-linked account receives a unique TKPASS promo code by email (unlocks all paid brawlers).', 'zh-TW': '測試活動：每個綁定 Google 的帳號都會收到一封內含 TKPASS 促銷碼的信件（解鎖全部付費武將）。' },
+            { tr: 'Ana menüye sürüm bilgisi ve değişiklik günlüğü eklendi.', en: 'Version info and changelog added to the main menu.', 'zh-TW': '主選單新增版本資訊與更新日誌。' }
+        ]
+    },
+    {
+        version: '0.9.0',
+        date: '2026-08-11',
+        items: [
+            { tr: 'Türkçe dil desteği eklendi; isimler, başlıklar, biyografiler ve beceri açıklamaları Türkçeye çevrildi.', en: 'Turkish language support added; names, titles, bios and ability descriptions translated.', 'zh-TW': '新增土耳其語支援；武將名稱、稱號、傳記與技能說明均已翻譯。' },
+            { tr: 'Çok oyunculu bağlantı ve asset yükleme düzeltmeleri.', en: 'Multiplayer relay and asset loading fixes.', 'zh-TW': '多人連線與資源載入修正。' },
+            { tr: 'Yeni Supabase projesine geçiş yapıldı.', en: 'Migrated to a new Supabase project.', 'zh-TW': '遷移至新的 Supabase 專案。' }
+        ]
+    },
+    {
+        version: '0.1.0',
+        date: '2026-08-10',
+        items: [
+            { tr: 'Fight Kingdom başlangıç sürümü — Üç Krallık temalı arena oyunu: tek oyunculu Boss, 3v3 çok oyunculu ve Rogue modları.', en: 'Fight Kingdom initial release — Three Kingdoms-themed arena game: solo Boss, 3v3 multiplayer and Rogue modes.', 'zh-TW': 'Fight Kingdom 首發版本 — 三國主題競技場：單人 Boss、3v3 多人與 Rogue 模式。' }
+        ]
+    }
+];
 
 /** Hub strings live in localeZhTw.js / localeEn.js — only ensure TKI18n is up. */
 CharacterSelect._ensureI18n = function () {
@@ -467,6 +500,41 @@ CharacterSelect.prototype._escHtml = function(s) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+};
+
+CharacterSelect.prototype._renderChangelog = function() {
+    var t = CharacterSelect.t;
+    var current = document.getElementById('changelog-current');
+    var body = document.getElementById('changelog-body');
+    if (current) {
+        current.textContent = t('hub.changelog.current', { version: CharacterSelect.GAME_VERSION });
+    }
+    if (!body) return;
+    var pick = function(item) {
+        return (window.TKI18n && typeof TKI18n.pick === 'function')
+            ? TKI18n.pick(item)
+            : (item.en != null ? item.en : item);
+    };
+    var html = '';
+    var list = CharacterSelect.CHANGELOG || [];
+    for (var i = 0; i < list.length; i++) {
+        var entry = list[i];
+        if (!entry || !entry.version) continue;
+        html += '<div class="changelog-entry' + (i === 0 ? ' is-current' : '') + '">' +
+            '<div class="changelog-entry-head">' +
+            '<span class="changelog-ver">v' + this._escHtml(entry.version) + '</span>' +
+            (i === 0 ? '<span class="changelog-latest">' + this._escHtml(t('hub.changelog.latest')) + '</span>' : '') +
+            '<span class="changelog-date">' + this._escHtml(entry.date || '') + '</span>' +
+            '</div>' +
+            '<ul class="changelog-items">';
+        var items = entry.items || [];
+        for (var j = 0; j < items.length; j++) {
+            var text = pick(items[j]);
+            html += '<li>' + this._escHtml(text) + '</li>';
+        }
+        html += '</ul></div>';
+    }
+    body.innerHTML = html || '<p class="changelog-empty">' + this._escHtml(t('hub.changelog.empty')) + '</p>';
 };
 
 CharacterSelect.prototype._loadRogueCheckpoint = function() {
@@ -1427,7 +1495,7 @@ CharacterSelect.prototype._buildDOMUI = function() {
         <div id="cs-bigname"></div>
         <div class="ui-panel" id="main-ui-panel">
             <button type="button" class="tk-btn-back" id="btn-hub-back">${t('hub.back')}</button>
-            <div class="hub-topbar"><div class="ui-title" id="ui-title"></div></div>
+            <div class="hub-topbar"><div class="ui-title" id="ui-title"></div><button type="button" class="hub-version" id="btn-changelog" title="v' + CharacterSelect.GAME_VERSION + '">v' + CharacterSelect.GAME_VERSION + '</button></div>
             
             <div id="step-network" class="step-container tk-network-step hub-step">
                 <div class="hub-hero">
@@ -1594,6 +1662,17 @@ CharacterSelect.prototype._buildDOMUI = function() {
             <div id="instruction-wrapper" class="tk-panel help-panel-v2">
                 <button class="close-btn" id="btn-close-help">X</button>
                 <div id="instruction-content"></div>
+            </div>
+        </div>
+
+        <div id="changelog-overlay" class="overlay-screen">
+            <div class="tk-panel changelog-panel">
+                <button class="close-btn" id="btn-close-changelog">X</button>
+                <div class="changelog-head">
+                    <div class="changelog-title">${t('hub.changelog.title')}</div>
+                    <div class="changelog-current" id="changelog-current"></div>
+                </div>
+                <div class="changelog-body" id="changelog-body"></div>
             </div>
         </div>
 
@@ -1881,6 +1960,16 @@ CharacterSelect.prototype._bindDOMEvents = function() {
         self.helpOverlay.style.display = 'flex'; 
     });
     bindButton('btn-close-help', function() { self.helpOverlay.style.display = 'none'; });
+
+    bindButton('btn-changelog', function() {
+        self._renderChangelog();
+        var ov = document.getElementById('changelog-overlay');
+        if (ov) ov.style.display = 'flex';
+    });
+    bindButton('btn-close-changelog', function() {
+        var ov = document.getElementById('changelog-overlay');
+        if (ov) ov.style.display = 'none';
+    });
 
     // 軍師演武／裝置對照：內容每次重繪，用 overlay 委派
     if (this.helpOverlay && !this._helpDelegated) {

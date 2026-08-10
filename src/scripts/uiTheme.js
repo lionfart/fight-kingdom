@@ -409,6 +409,11 @@ var UiTheme = {
         '.tk-btn-back:active{background:rgba(201,162,90,0.1);border-color:rgba(201,162,90,0.55);color:var(--tk-text);}' +
         '.hub-topbar{gap:10px;margin-bottom:10px;}' +
         '.hub-topbar .ui-title{margin:0 0 0 auto;font-size:17px;letter-spacing:8px;text-indent:8px;opacity:0.95;}' +
+        '.hub-version{background:none;border:1px solid rgba(201,162,90,0.4);border-radius:8px;' +
+        'color:rgba(201,162,90,0.9);font-size:11px;padding:4px 10px;cursor:pointer;' +
+        'font-family:var(--tk-font-num);letter-spacing:1px;flex-shrink:0;' +
+        'transition:background 0.15s ease,border-color 0.15s ease;}' +
+        '.hub-version:active{background:rgba(201,162,90,0.12);border-color:rgba(201,162,90,0.6);color:var(--tk-gold);}' +
 
         /* ── Hub homepage ── */
         '.hub-step{justify-content:center;gap:16px;}' +
@@ -653,6 +658,22 @@ var UiTheme = {
 
         '#instruction-wrapper.tk-panel,#instruction-wrapper.help-panel-v2{display:flex;flex-direction:column;align-items:stretch;width:min(92vw,420px);max-width:420px;padding:28px 22px 22px;position:relative;text-align:left;gap:0;border-radius:0;box-shadow:none;}' +
         '#instruction-content{display:flex;flex-direction:column;gap:18px;width:100%;}' +
+        '.changelog-panel.tk-panel{display:flex;flex-direction:column;align-items:stretch;width:min(92vw,420px);max-width:420px;' +
+        'max-height:82vh;padding:28px 22px 22px;position:relative;text-align:left;gap:0;border-radius:0;box-shadow:none;overflow:hidden;}' +
+        '.changelog-head{border-bottom:1px solid rgba(201,162,90,0.25);padding-bottom:12px;margin-bottom:14px;padding-right:40px;}' +
+        '.changelog-title{font-family:var(--tk-font-serif);font-weight:900;font-size:22px;color:var(--tk-gold);letter-spacing:2px;}' +
+        '.changelog-current{font-size:12px;color:var(--tk-text-sub);margin-top:6px;letter-spacing:1px;}' +
+        '.changelog-body{display:flex;flex-direction:column;gap:18px;overflow-y:auto;padding-right:4px;}' +
+        '.changelog-entry{position:relative;}' +
+        '.changelog-entry.is-current{border-left:3px solid var(--tk-gold);padding-left:12px;}' +
+        '.changelog-entry-head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;}' +
+        '.changelog-ver{font-family:var(--tk-font-serif);font-weight:900;font-size:17px;color:var(--tk-gold);letter-spacing:1px;}' +
+        '.changelog-latest{font-size:10px;font-weight:800;letter-spacing:0.15em;color:#171009;' +
+        'background:linear-gradient(180deg,#f5d27a,#c9a25a);border-radius:4px;padding:2px 6px;}' +
+        '.changelog-date{font-size:12px;color:var(--tk-text-muted);margin-left:auto;letter-spacing:1px;}' +
+        '.changelog-items{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;}' +
+        '.changelog-items li{font-size:13px;color:var(--tk-text-muted);line-height:1.5;letter-spacing:0.3px;}' +
+        '.changelog-empty{color:var(--tk-text-muted);font-size:13px;text-align:center;padding:20px 0;}' +
         '.help-hero{text-align:center;padding:8px 4px 4px;}' +
         '.help-hero-kicker{font-size:11px;letter-spacing:0.18em;color:rgba(201,162,90,0.75);margin-bottom:6px;}' +
         '.help-hero-title{font-family:var(--tk-font-serif);font-weight:900;font-size:28px;color:var(--tk-gold);margin-bottom:8px;}' +
@@ -716,12 +737,14 @@ var UiTheme = {
         '.overlay-text{font-size:32px;}.tk-prompt-box{width:90%;padding:20px;}' +
         '#cs-bigname{top:calc(var(--tk-sat) + 54px);right:8px;font-size:clamp(64px,17vw,130px);-webkit-text-stroke-width:1.2px;}' +
         '#instruction-wrapper.tk-panel,#instruction-wrapper.help-panel-v2{width:92%;max-width:400px;padding:40px 14px 16px;}' +
+        '.changelog-panel.tk-panel{width:92%;max-width:400px;padding:40px 14px 16px;}' +
         '.help-hero-title{font-size:24px;}.help-ctrl-desc{display:none;}}' +
 
         '@media (max-height:500px) and (orientation:landscape){' +
         '.ui-panel{padding:14px 18px 14px 52px;width:min(50%,520px);}.ui-title{font-size:20px;}' +
         '.mode-card{min-height:56px;}.tk-prompt-box{padding:14px;}' +
-        '#instruction-wrapper.help-panel-v2{max-height:90vh;overflow:auto;}}';
+        '#instruction-wrapper.help-panel-v2{max-height:90vh;overflow:auto;}' +
+        '.changelog-panel.tk-panel{max-height:90vh;overflow:auto;}}';
     },
 
     /* Mode C：全屏角色 + 底部抽屜（mockup-C.html，後載入覆蓋 _lobbyCss） */

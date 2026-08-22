@@ -1013,6 +1013,16 @@ var UiTheme = {
         '.mode-dots i.on{background:var(--gold);box-shadow:0 0 8px rgba(240,207,135,.5);}' +
         '#room-buttons{display:flex;gap:8px;margin-top:8px;}' +
         '#room-buttons .tk-btn{flex:1;padding:10px 0;min-height:44px;font-size:12.5px;' +
+        '.arena-deck{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;flex-wrap:wrap;}' +
+        '.arena-pick-label{font-size:11px;color:#c3b79c;letter-spacing:.12em;margin-right:2px;}' +
+        '.arena-card{position:relative;padding:7px 14px;min-height:44px;border:1px solid rgba(184,148,90,.35);' +
+        'border-radius:8px;background:linear-gradient(180deg,rgba(32,26,18,.92),rgba(16,12,9,.92));' +
+        'cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;}' +
+        '.arena-card:hover{border-color:var(--gold,#d8b04c);transform:translateY(-1px);}' +
+        '.arena-card.on{border-color:var(--gold,#d8b04c);box-shadow:0 0 12px rgba(240,207,135,.35),inset 0 0 8px rgba(240,207,135,.12);}' +
+        '.arena-card-name{display:block;font-family:var(--serif);font-weight:900;font-size:14px;color:#e8dcc0;line-height:1.1;}' +
+        '.arena-card.on .arena-card-name{color:var(--gold,#f0cf87);}' +
+        '.arena-card-size{display:block;font-size:10px;color:#8f8268;margin-top:2px;}' +
         'background:rgba(184,148,90,.07);border:1px solid rgba(184,148,90,.34);color:var(--gold);}' +
 
         '#step-network{display:none;flex-direction:column;justify-content:center;' +

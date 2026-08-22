@@ -91,6 +91,7 @@ NetworkManager.normalizeMode = function(mode) {
     var m = String(mode || 'FFA').trim().toUpperCase().replace(/\s+/g, '_');
     if (m === '3V3BOUNTY') return '3V3_BOUNTY';
     if (m === '3V3KNOCKOUT') return '3V3_KNOCKOUT';
+    if (m === 'ARMY6V6' || m === 'ARMY_6V6' || m === 'ARMY' || m === '6V6') return 'ARMY_6V6';
     return m;
 };
 
@@ -107,6 +108,8 @@ NetworkManager.prototype._updateSelection = function(selection) {
     this.currentBrawler = selection.brawler;
     this.currentSkinKey = selection.skinKey || '';
     this.currentMode = NetworkManager.normalizeMode(selection.mode);
+    this.currentArena = selection.arena || 'Asian';
+    this.currentArmy = Array.isArray(selection.army) ? selection.army.slice(0,5) : [];
 };
 
 NetworkManager.prototype._onRequestMatchmaking = function(selection) {
@@ -116,7 +119,7 @@ NetworkManager.prototype._onRequestMatchmaking = function(selection) {
 };
 
 NetworkManager.prototype._joinMatchmaking = function() {
-    this.socket.emit('join_matchmaking', { mode: this.currentMode, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName });
+    this.socket.emit('join_matchmaking', { mode: this.currentMode, arena: this.currentArena, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName, army: this.currentArmy });
 };
 
 NetworkManager.prototype._onCreateRoom = function(selection) {
@@ -126,7 +129,7 @@ NetworkManager.prototype._onCreateRoom = function(selection) {
 };
 
 NetworkManager.prototype._emitCreateRoom = function() {
-    this.socket.emit('create_room', { mode: this.currentMode, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName });
+    this.socket.emit('create_room', { mode: this.currentMode, arena: this.currentArena, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName, army: this.currentArmy });
 };
 
 NetworkManager.prototype._onJoinRoom = function(selection, roomCode) {
@@ -137,7 +140,7 @@ NetworkManager.prototype._onJoinRoom = function(selection, roomCode) {
 };
 
 NetworkManager.prototype._emitJoinRoom = function() {
-    this.socket.emit('join_room', { roomId: this.targetRoomCode, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName });
+    this.socket.emit('join_room', { roomId: this.targetRoomCode, brawler: this.currentBrawler, skinKey: this.currentSkinKey, playerName: this.playerName, army: this.currentArmy });
 };
 
 NetworkManager.prototype._onStartRoomGame = function(roomId) {

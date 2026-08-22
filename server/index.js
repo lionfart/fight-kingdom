@@ -18,13 +18,30 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || '*').split(',').map(s => s.tri
 const MODES = {
     '3V3_BOUNTY': { teams: 2, perTeam: 3, max: 6, duration: 180 },
     '3V3_KNOCKOUT': { teams: 2, perTeam: 3, max: 6, duration: 60, rounds: true },
-    'FFA': { teams: 0, perTeam: 0, max: 8, duration: 180 }
+    'FFA': { teams: 0, perTeam: 0, max: 8, duration: 180 },
+    'ARMY_6V6': { teams: 2, perTeam: 1, max: 2, duration: 180, armySize: 5 }
 };
 
 const GEM_SPAWN_INTERVAL = 7.0;
 const TARGET_GEMS = 15;
 const GEM_COUNTDOWN = 15;
 const KNOCKOUT_TARGET_WINS = 3;
+
+// Arena gem-spawn bounds (base = Asian 35x55) and their scale factors.
+// Client sends `arena` with join_matchmaking / create_room.
+const ARENAS = {
+    'Asian':      { sx: 1,             sz: 1,             gemX: 9,  gemZ: 8  },
+    'AsianLarge': { sx: 60 / 35,       sz: 90 / 55,       gemX: 9,  gemZ: 8  },
+    'Riverside':  { sx: 50 / 35,       sz: 80 / 55,       gemX: 9,  gemZ: 8  },
+    'ArmyArena':  { sx: 70 / 35,       sz: 110 / 55,      gemX: 12, gemZ: 10 }
+};
+function normalizeArena(a) {
+    return ARENAS[a] ? a : 'Asian';
+}
+function arenaBounds(arena) {
+    const cfg = ARENAS[normalizeArena(arena)];
+    return { gemX: cfg.gemX * cfg.sx, gemZ: cfg.gemZ * cfg.sz };
+}
 
 const app = express();
 app.use(express.json());
@@ -59,13 +76,18 @@ function roomCode() {
 // Match helpers
 // ---------------------------------------------------------------------------
 
-function createMatch(roomId, mode, sockets) {
+function normalizeArmy(a) {
+    if (!Array.isArray(a)) return [];
+    return a.map(s => String(s).trim().toLowerCase()).filter(s => s && /^[a-z0-9_]+$/.test(s)).slice(0,5);
+}
+function createMatch(roomId, mode, sockets, arena) {
     const cfg = MODES[mode];
     const match = {
         roomId,
         mode,
         cfg,
-        players: {},        // socketId -> { hp, maxHp, x, z, r, s, brawler, skinKey, name, team, isDead, gems }
+        arena: normalizeArena(arena),
+        players: {},        // socketId -> { hp, maxHp, x, z, r, s, brawler, skinKey, name, team, isDead, gems, army }
         startedAt: Date.now(),
         timeLeft: cfg.duration,
         timer: null,
@@ -97,7 +119,8 @@ function createMatch(roomId, mode, sockets) {
             name: meta.name || 'Fighter',
             team,
             isDead: false,
-            gems: 0
+            gems: 0,
+            army: normalizeArmy(meta.army)
         };
     });
 
@@ -123,7 +146,8 @@ function fullStatePayload(match) {
             x: p.x, z: p.z, r: p.r, s: p.s,
             hp: p.hp,
             maxHp: p.maxHp,
-            isDead: p.isDead
+            isDead: p.isDead,
+            army: p.army || []
         };
     });
     return { players, activeGems: Object.keys(match.gems).map(id => ({ id, x: match.gems[id].x, z: match.gems[id].z })) };
@@ -234,11 +258,12 @@ function startMatchTimer(match) {
 }
 
 function spawnGems(match) {
+    const bounds = arenaBounds(match.arena);
     const count = 1 + Math.floor(Math.random() * 2);
     for (let i = 0; i < count; i++) {
         const gemId = 'gem_' + (++match.gemIdSeq);
-        const x = (Math.random() * 2 - 1) * 9;
-        const z = (Math.random() * 2 - 1) * 8;
+        const x = (Math.random() * 2 - 1) * bounds.gemX;
+        const z = (Math.random() * 2 - 1) * bounds.gemZ;
         match.gems[gemId] = { x, z };
         broadcastMatch(match, 'spawnGem', { gemId, x, z });
     }
@@ -307,11 +332,13 @@ function removeFromMatchmaking(socketId) {
 
 function createRoom(socket, data) {
     const mode = normalizeMode(data.mode);
+    const arena = normalizeArena(data.arena);
     const roomId = 'R' + (nextRoomId++) + '_' + roomCode();
     rooms[roomId] = {
         id: roomId,
         code: roomId.split('_')[1],
         mode,
+        arena,
         hostId: socket.id,
         players: [{
             id: socket.id,
@@ -329,10 +356,12 @@ function createRoom(socket, data) {
     meta.brawler = data.brawler || 'guanyu';
     meta.skinKey = data.skinKey || '';
     meta.mode = mode;
+    meta.arena = arena;
+    meta.army = normalizeArmy(data.army);
     playerMeta.set(socket.id, meta);
 
     socket.join(roomId);
-    socket.emit('room_created', { roomId, code: rooms[roomId].code, mode });
+    socket.emit('room_created', { roomId, code: rooms[roomId].code, mode, arena });
     emitRoomUpdate(roomId);
 }
 
@@ -361,9 +390,10 @@ function joinRoom(socket, data) {
     meta.name = data.playerName || meta.name || 'Fighter';
     meta.brawler = data.brawler || 'guanyu';
     meta.skinKey = data.skinKey || '';
+    meta.army = normalizeArmy(data.army);
     playerMeta.set(socket.id, meta);
     socket.join(room.id);
-    socket.emit('room_joined', { roomId: room.id, code: room.code, mode: room.mode });
+    socket.emit('room_joined', { roomId: room.id, code: room.code, mode: room.mode, arena: room.arena });
     emitRoomUpdate(room.id);
 }
 
@@ -383,6 +413,7 @@ function emitRoomUpdate(roomId) {
         roomId,
         code: room.code,
         mode: room.mode,
+        arena: room.arena,
         hostId: room.hostId,
         players: room.players
     });
@@ -416,6 +447,8 @@ function joinMatchmaking(socket, data) {
     meta.brawler = data.brawler || 'guanyu';
     meta.skinKey = data.skinKey || '';
     meta.mode = mode;
+    meta.arena = normalizeArena(data.arena);
+    meta.army = normalizeArmy(data.army);
     playerMeta.set(socket.id, meta);
 
     removeFromMatchmaking(socket.id);
@@ -441,7 +474,8 @@ function startMatch(mode, socketIds) {
     const sockets = socketIds.map(id => io.sockets.sockets.get(id)).filter(s => s && s.connected);
     if (sockets.length < 2) return;
 
-    const match = createMatch(roomId, mode, sockets);
+    const firstMeta = playerMeta.get(socketIds[0]) || {};
+    const match = createMatch(roomId, mode, sockets, firstMeta.arena);
     matches[roomId] = match;
 
     sockets.forEach(socket => {
@@ -453,6 +487,7 @@ function startMatch(mode, socketIds) {
         socket.emit('match_found', {
             roomId,
             mode,
+            arena: match.arena,
             team: p.team,
             slot: Object.keys(match.players).indexOf(socket.id)
         });
@@ -460,7 +495,9 @@ function startMatch(mode, socketIds) {
 
     setTimeout(() => {
         if (!matches[roomId] || match.gameOver) return;
-        broadcastMatch(match, 'game_start', { mode });
+        const armies = {};
+        Object.keys(match.players).forEach(sid => { armies[sid] = match.players[sid].army || []; });
+        broadcastMatch(match, 'game_start', { mode, armies });
         broadcastMatch(match, 'server:fullStateSync', fullStatePayload(match));
         startMatchTimer(match);
     }, 3000);
@@ -474,6 +511,7 @@ function normalizeMode(mode) {
     const m = String(mode || 'FFA').trim().toUpperCase().replace(/\s+/g, '_');
     if (m === '3V3BOUNTY') return '3V3_BOUNTY';
     if (m === '3V3KNOCKOUT') return '3V3_KNOCKOUT';
+    if (m === 'ARMY6V6' || m === 'ARMY_6V6' || m === 'ARMY' || m === '6V6') return 'ARMY_6V6';
     return m;
 }
 
@@ -592,7 +630,7 @@ function onStartRoomGame(socket, data) {
         return;
     }
     // move room players into a match
-    const match = createMatch(room.id, room.mode, players);
+    const match = createMatch(room.id, room.mode, players, room.arena);
     matches[room.id] = match;
     players.forEach(s => {
         const m = playerMeta.get(s.id) || {};
@@ -601,7 +639,9 @@ function onStartRoomGame(socket, data) {
         playerMeta.set(s.id, m);
     });
     delete rooms[room.id];
-    broadcastMatch(match, 'game_start', { mode: match.mode, room: true });
+    const roomArmies = {};
+    Object.keys(match.players).forEach(sid => { roomArmies[sid] = match.players[sid].army || []; });
+    broadcastMatch(match, 'game_start', { mode: match.mode, room: true, arena: match.arena, armies: roomArmies });
     broadcastMatch(match, 'server:fullStateSync', fullStatePayload(match));
     startMatchTimer(match);
 }

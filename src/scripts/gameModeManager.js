@@ -10,7 +10,12 @@ GameModeManager.normalizeMode = function(mode) {
     var m = String(mode || 'FFA').trim().toUpperCase().replace(/\s+/g, '_');
     if (m === '3V3BOUNTY') return '3V3_BOUNTY';
     if (m === '3V3KNOCKOUT') return '3V3_KNOCKOUT';
+    if (m === 'ARMY6V6' || m === 'ARMY_6V6' || m === 'ARMY' || m === '6V6') return 'ARMY_6V6';
     return m;
+};
+
+GameModeManager.prototype._isArmyMode = function() {
+    return GameModeManager.normalizeMode(this.currentMode) === 'ARMY_6V6';
 };
 
 GameModeManager.prototype._isBountyMode = function() {
@@ -26,6 +31,20 @@ GameModeManager.prototype._isMultiplayerSession = function() {
 };
 
 GameModeManager.INTRO_DURATION = 4.5;
+
+// ==========================================
+// 🌟 競技場比例 (Arena Scale)
+// ==========================================
+GameModeManager.ARENA_SCALES = {
+    'Asian': { sx: 1, sz: 1 },
+    'AsianLarge': { sx: 60 / 35, sz: 90 / 55 },
+    'Riverside': { sx: 50 / 35, sz: 80 / 55 },
+    'ArmyArena': { sx: 70 / 35, sz: 110 / 55 }
+};
+GameModeManager.getArenaScale = function (name) {
+    var s = GameModeManager.ARENA_SCALES[name] || GameModeManager.ARENA_SCALES['Asian'];
+    return { sx: s.sx, sz: s.sz };
+};
 
 // ==========================================
 // 🌟 屬性設定 (Attributes)
@@ -57,6 +76,13 @@ GameModeManager.prototype.initialize = function() {
     this.ffaSpawns = []; this.pveEnemySpawns = [];
     this.blueSpawns = []; this.redSpawns = [];
     this.mapCenterX = 0; this.mapCenterZ = 0;
+    this.walls = [];
+
+    this.arenaSx = 1; this.arenaSz = 1;
+    if (this.mapRoot) {
+        var as = GameModeManager.getArenaScale(this.mapRoot.name);
+        this.arenaSx = as.sx; this.arenaSz = as.sz;
+    }
     
     this.mapLimitX = 11.5; this.mapLimitZ = 10.0;
     this.mapMinX = -11.5; this.mapMaxX = 11.5;
@@ -235,6 +261,33 @@ GameModeManager.prototype._createInvisibleWall = function(x, z, width, height, d
     entity.addComponent('collision', { type: 'box', halfExtents: new pc.Vec3(width / 2, height / 2, depth / 2) });
     entity.addComponent('rigidbody', { type: 'static' }); entity.setPosition(x, height / 2, z);
     if (this.mapRoot) this.mapRoot.addChild(entity); else this.app.root.addChild(entity);
+    this.walls.push(entity);
+};
+
+// ==========================================
+// 🌟 切換競技場 (Arena Selection)
+// ==========================================
+GameModeManager.prototype.setActiveMap = function(mapEntity) {
+    if (!mapEntity || mapEntity === this.mapRoot) {
+        if (mapEntity && !this.mapRoot) this.mapRoot = mapEntity;
+        return;
+    }
+    var self = this;
+    this.walls.forEach(function(w) { if (w && w.destroy) w.destroy(); });
+    this.walls = [];
+    this.obstacles = []; this.bushes = [];
+    this.ffaSpawns = []; this.pveEnemySpawns = [];
+    this.blueSpawns = []; this.redSpawns = [];
+    this.doors = []; this.walkableFloors = [];
+    this.mapRoot = mapEntity;
+    var as = GameModeManager.getArenaScale(mapEntity.name);
+    this.arenaSx = as.sx; this.arenaSz = as.sz;
+    this._parseMapFromHierarchy();
+    this.app.fire('game:mapChanged', { mapName: mapEntity.name, mapRoot: mapEntity });
+};
+
+GameModeManager.prototype.getArenaScale = function() {
+    return { sx: this.arenaSx || 1, sz: this.arenaSz || 1 };
 };
 
 GameModeManager.prototype._parseSpawns = function(spawnFolder) {
@@ -262,7 +315,7 @@ GameModeManager.prototype.getSafeSpawnPoint = function(team, slotIndex) {
     
     // ================= PVE / ROGUE 模式 =================
     if (mode === 'PVE' || mode === 'ROGUE') {
-        if (team === 'blue' || team === 'none') return this._nudgeOutOfObstacles(cx, cz + 25);
+        if (team === 'blue' || team === 'none') return this._nudgeOutOfObstacles(cx, cz + 25 * (this.arenaSz || 1));
         var pveSpot = this.pveEnemySpawns[Math.floor(Math.random() * this.pveEnemySpawns.length)];
         return this._nudgeOutOfObstacles(pveSpot.x + (Math.random() - 0.5) * 2.0, pveSpot.z + (Math.random() - 0.5) * 2.0);
     }
@@ -271,6 +324,31 @@ GameModeManager.prototype.getSafeSpawnPoint = function(team, slotIndex) {
     var safeSlot = parseInt(slotIndex, 10);
     var hasValidSlot = !isNaN(safeSlot) && safeSlot >= 0;
     
+    // ================= ARMY_6V6 模式 =================
+    if (mode === 'ARMY_6V6') {
+        var armyB = (this.blueSpawns && this.blueSpawns.length >= 3) ? this.blueSpawns : [{x: cx - 12, z: cz + 50}, {x: cx, z: cz + 50}, {x: cx + 12, z: cz + 50}];
+        var armyR = (this.redSpawns && this.redSpawns.length >= 3) ? this.redSpawns : [{x: cx + 12, z: cz - 50}, {x: cx, z: cz - 50}, {x: cx - 12, z: cz - 50}];
+        var armySpawns = (team === 'red') ? armyR : armyB;
+        // armySlot: 0 = lider, 1-5 = NPC (lider etrafında halka)
+        if (slotIndex === 'army_offset' || (hasValidSlot && safeSlot >= 10)) {
+            // NPC offset spawn: lider pozisyonu etrafında halka
+            var leaderIdx = Math.floor(safeSlot / 10) % armySpawns.length;
+            var offsetIdx = safeSlot % 10;
+            var base = armySpawns[leaderIdx];
+            var angle = (offsetIdx / 5) * Math.PI * 2;
+            var radius = 2.5 + (offsetIdx % 2) * 0.8;
+            var ox = Math.cos(angle) * radius;
+            var oz = Math.sin(angle) * radius;
+            return this._nudgeOutOfObstacles(base.x + ox, base.z + oz);
+        }
+        if (hasValidSlot) {
+            var s = armySpawns[safeSlot % armySpawns.length];
+            return { x: s.x + (Math.random()-0.5)*0.4, z: s.z + (Math.random()-0.5)*0.4 };
+        }
+        var rnd = armySpawns[Math.floor(Math.random()*armySpawns.length)];
+        return { x: rnd.x + (Math.random()-0.5)*0.4, z: rnd.z + (Math.random()-0.5)*0.4 };
+    }
+
     // ================= 3V3 模式 =================
     if (mode === '3V3_BOUNTY' || mode === '3V3_KNOCKOUT') {
         var defaultZ = this.teamSpawnZ || 6.0;
@@ -334,7 +412,8 @@ GameModeManager.prototype._introCopyForMode = function(mode) {
         '3V3_BOUNTY': 'announcer.mode.bounty',
         'PVE': 'announcer.mode.pve',
         'ROGUE': 'announcer.mode.rogue',
-        'FFA': 'announcer.mode.ffa'
+        'FFA': 'announcer.mode.ffa',
+        'ARMY_6V6': 'announcer.mode.army'
     };
     return GameModeManager.t(keyMap[mode] || 'announcer.mode.default');
 };
@@ -535,14 +614,16 @@ GameModeManager.prototype._onGameStart = function(data) {
     this.gemSpawnTimer = this.gemSpawnInterval; this.blueTeamGems = 0; this.redTeamGems = 0; this.isCountdownActive = false; this.matchCountdown = 0;
     if (this.bountyUI) this._hideBountyBanner();
 
-    // 🌟 設定全局時間 (Bounty/FFA = 180s, Knockout = 60s)
+    // 🌟 設定全局時間 (Bounty/FFA = 180s, Knockout = 60s, Army = 180s)
     if (this.currentMode === '3V3_KNOCKOUT') this.globalTimer = this.knockoutRoundDuration;
+    else if (this.currentMode === 'ARMY_6V6') this.globalTimer = this.matchDuration;
     else this.globalTimer = this.matchDuration;
 
     this._timerSlot = null; // 重置快取，下次 update 重新抓牌匾中格
 
     if (this.currentMode === 'PVE') { this.currentWave = 0; this.waveStatus = 'waiting'; } 
     else if (this.currentMode === 'ROGUE') { this.app.myTeam = 'blue'; } // 🎲 友傷判定與索敵豁免的地基
+    else if (this.currentMode === 'ARMY_6V6') { this._initArmyMode(data); }
     else if (this.currentMode === '3V3_KNOCKOUT' || this.currentMode === '3V3_BOUNTY') { this.app.fire('knockout:updateScore', this.blueWins, this.redWins); }
     this.app.fire('network:clientReady'); 
 };
@@ -550,6 +631,73 @@ GameModeManager.prototype._onGameStart = function(data) {
 GameModeManager.prototype._onRoundStart = function() {
     this.isRoundOver = false;
     this.globalTimer = this.knockoutRoundDuration; // Knockout 每局重置時間
+};
+
+// ==========================================
+// 🌟 ARMY_6V6 模式
+// ==========================================
+GameModeManager.prototype._initArmyMode = function(data) {
+    this.isArmyRoundOver = false;
+    this._armyCheckTimer = 0;
+    // myTeam already set via network or local, ensure default
+    if (!this.app.myTeam) this.app.myTeam = 'blue';
+    console.log('[Army] init mode=' + this.currentMode + ' myTeam=' + this.app.myTeam + ' armyData=' + JSON.stringify(data && data.army));
+};
+
+GameModeManager.prototype._checkArmyWin = function() {
+    if (this.isMatchOver || this.currentMode !== 'ARMY_6V6') return;
+    var blueAlive = 0, redAlive = 0;
+    var pCtrl = this.app.playerController;
+    if (pCtrl && !pCtrl.isDead) {
+        if (this.app.myTeam === 'blue') blueAlive++;
+        else if (this.app.myTeam === 'red') redAlive++;
+        // In online, enemy player is remote -> check enemyManager remotely?
+        // For offline, enemy is bot with isArmyLeader
+    }
+    // Count remote player via enemyManager (online) - check if exists
+    var eMgr = this.app.enemyManager;
+    if (eMgr && eMgr.enemies) {
+        for (var ei = 0; ei < eMgr.enemies.length; ei++) {
+            var re = eMgr.enemies[ei];
+            if (re && !re.isDead && re.team) {
+                if (re.team === 'blue') blueAlive++;
+                else if (re.team === 'red') redAlive++;
+            }
+        }
+    }
+    var bCtrl = this._getBotCtrl();
+    if (bCtrl && bCtrl.bots) {
+        for (var i = 0; i < bCtrl.bots.length; i++) {
+            var bot = bCtrl.bots[i];
+            if (bot.state === 'alive' && bot.entity && bot.entity.enabled) {
+                if (bot.team === 'blue') blueAlive++;
+                else if (bot.team === 'red') redAlive++;
+            }
+        }
+    }
+    // Also count local player if not yet counted via isDead check for FFA fallback
+    // If total alive for a team ==0 -> win
+    if (blueAlive === 0 && redAlive === 0) {
+        this._endArmyMatch('draw');
+    } else if (blueAlive === 0) {
+        this._endArmyMatch('red');
+    } else if (redAlive === 0) {
+        this._endArmyMatch('blue');
+    }
+};
+
+GameModeManager.prototype._endArmyMatch = function(winnerTeam) {
+    if (this.isMatchOver) return;
+    this._markMatchOver();
+    var self = this;
+    this.app.timeScale = 0.3;
+    setTimeout(function() {
+        self.app.timeScale = 1.0;
+        self._showAnnouncer(winnerTeam === 'draw' ? GameModeManager.t('announcer.team.draw') : (winnerTeam === 'blue' ? GameModeManager.t('announcer.team.blue') : GameModeManager.t('announcer.team.red')), winnerTeam);
+        setTimeout(function() {
+            if (self.app.scoreManager) self.app.scoreManager.endGame(winnerTeam);
+        }, 2500);
+    }, 800);
 };
 
 GameModeManager.prototype.startIntroSequence = function() {
@@ -736,6 +884,16 @@ GameModeManager.prototype.update = function(dt) {
             }
         }
     }
+
+    // 🌟 ARMY_6V6: her frame değil, 0.3s throttled kontrol (performans)
+    if (this.currentMode === 'ARMY_6V6' && this.app.gameState === 'playing' && !this.isMatchOver) {
+        this._armyCheckTimer -= dt;
+        if (this._armyCheckTimer <= 0) {
+            this._armyCheckTimer = 0.3;
+            this._checkArmyWin();
+        }
+        // Süre dolunca da aynı win check çalışır (_handleTimeUp üzerinden)
+    }
 };
 
 // ==========================================
@@ -743,6 +901,32 @@ GameModeManager.prototype.update = function(dt) {
 // ==========================================
 GameModeManager.prototype._onPlayerDeath = function(deadEntityId) {
     if (this.isMatchOver) return;
+
+    if (this.currentMode === 'ARMY_6V6') {
+        // Army: FFA gibi tüm ölümlerde respawn'ı kilitle (tek can), sonra win check
+        if (deadEntityId === 'player' && this.app.playerController) {
+            this.app.playerController.respawnTimer = Infinity;
+            if (this.app.playerController.deathMessage) {
+                this.app.playerController.deathMessage.enabled = true;
+                this.app.playerController.deathMessage.element.text = GameModeManager.t('announcer.ffa.dead');
+            }
+        } else {
+            var bCtrlArmy = this._getBotCtrl();
+            if (bCtrlArmy && bCtrlArmy.bots) {
+                for (var bi=0; bi<bCtrlArmy.bots.length; bi++) {
+                    var botA = bCtrlArmy.bots[bi];
+                    if (botA.entity && (botA.entity.getGuid() === deadEntityId || botA.entity.name === deadEntityId)) {
+                        botA.respawnTimer = Infinity;
+                        break;
+                    }
+                }
+            }
+        }
+        var selfArmy = this;
+        if (this._armyDeathTimer) clearTimeout(this._armyDeathTimer);
+        this._armyDeathTimer = setTimeout(function() { selfArmy._checkArmyWin(); }, 80);
+        return;
+    }
 
     if (this.currentMode === 'ROGUE') return; // 🎲 ROGUE 死亡結算由 RogueDirector 處理
 
@@ -841,6 +1025,9 @@ GameModeManager.prototype._handleTimeUp = function() {
     }
     else if (this.currentMode === 'FFA') {
         this._checkFFALastManStanding(true); 
+    }
+    else if (this.currentMode === 'ARMY_6V6') {
+        this._checkArmyWin();
     }
 };
 

@@ -79,6 +79,18 @@ BotController.prototype.initialize = function () {
     this._gemTargetPos = new pc.Vec3();
 
     this.app.on('game:start', function(data) {
+        var normMode = (data && data.mode) ? String(data.mode).toUpperCase().replace(/\s+/g,'_') : 'FFA';
+        if (normMode === 'ARMY_6V6' || normMode === 'ARMY6V6' || normMode === 'ARMY') normMode = 'ARMY_6V6';
+        var isArmy = normMode === 'ARMY_6V6';
+        if (isArmy) {
+            // Army modda her zaman AI NPC'ler lazım (online/offline fark etmez) — sadece liderler network
+            this.isActive = true;
+            var selfArmy = this;
+            setTimeout(function() {
+                selfArmy._spawnArmyBots(data);
+            }, 60);
+            return;
+        }
         if (data && data.isMultiplayer) { 
             this.isActive = false; 
             this._cleanup(); 
@@ -92,7 +104,13 @@ BotController.prototype.initialize = function () {
         }
     }, this);
 
-    this.app.on('lobby:matchFound', function() { 
+    this.app.on('lobby:matchFound', function(data) {
+        var m = data && data.mode ? String(data.mode).toUpperCase().replace(/\s+/g,'_') : '';
+        if (m === 'ARMY6V6' || m === 'ARMY_6V6' || m === 'ARMY' || m === '6V6') m = 'ARMY_6V6';
+        if (m === 'ARMY_6V6') {
+            // Army modda lobiden sonra da botlar kalacak — cleanup yapma
+            return;
+        }
         this.isActive = false; 
         this._cleanup(); 
     }, this);
@@ -386,8 +404,12 @@ BotController.prototype._onPVEWaveStart = function(waveNum) {
         var assignedTeam = 'red';
         var spawn = {x: 0, z: 0};
         if (typeof spawnData === 'object' && spawnData.x !== undefined && spawnData.z !== undefined) {
-            spawn.x = spawnData.x;
-            spawn.z = spawnData.z;
+            // 🌟 依競技場比例放大固定出生點 (Asian → AsianLarge / Riverside)
+            var gmm = this.app.gameModeManager;
+            var sx = gmm ? (gmm.arenaSx || 1) : 1;
+            var sz = gmm ? (gmm.arenaSz || 1) : 1;
+            spawn.x = spawnData.x * sx;
+            spawn.z = spawnData.z * sz;
         } else if (this.app.gameModeManager) {
             spawn = this.app.gameModeManager.getSafeSpawnPoint(assignedTeam, i);
         }
@@ -1459,6 +1481,195 @@ BotController.prototype._spawnBots = function (mode) {
             this.app.scoreManager.registerBot('bot_' + i, bType, assignedTeam);
         }
     }
+};
+
+// ==========================================
+// 🌟 ARMY_6V6 5+1 NPC ordu spawn (AI only)
+// ==========================================
+BotController.prototype._pickRandomArmy = function(excludeTypes, count) {
+    var all = ['guanyu','zhangjiao','zhangliao','caocao','zhouyu','lubu','zhangfei','diaochan','liubei','sunquan','zhangbao'];
+    var pool = all.filter(function(t){ return excludeTypes.indexOf(t) < 0 && window.BrawlerConfig && window.BrawlerConfig[t] && window.BrawlerConfig[t].select; });
+    // karıştır
+    for (var k = pool.length - 1; k > 0; k--) { var r = Math.floor(Math.random()*(k+1)); var tmp=pool[k]; pool[k]=pool[r]; pool[r]=tmp; }
+    return pool.slice(0, count);
+};
+
+BotController.prototype._normalizeArmy = function(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    for (var i=0;i<arr.length && out.length<5;i++) {
+        var v = String(arr[i]||'').toLowerCase();
+        if (window.BrawlerConfig && window.BrawlerConfig[v] && window.BrawlerConfig[v].select) out.push(v);
+    }
+    return out;
+};
+
+BotController.prototype._spawnArmyBots = function(gameData) {
+    var self = this;
+    this._cleanup();
+    var app = this.app;
+    var gmm = app.gameModeManager;
+    var isMulti = false;
+    try { isMulti = gmm && gmm._isMultiplayerSession && gmm._isMultiplayerSession(); } catch(e) {}
+    // Fallback: check socket connected
+    if (!isMulti && app.networkManager && app.networkManager.socket && app.networkManager.socket.connected) isMulti = true;
+
+    var myTeam = app.myTeam || 'blue';
+    var enemyTeam = myTeam === 'blue' ? 'red' : 'blue';
+
+    // --- Kendi ordum ---
+    var sel = app.characterSelect && app.characterSelect.selection;
+    var myBrawler = (app.playerController && app.playerController.brawlerType) || (sel && sel.brawler) || 'guanyu';
+    var myArmy = [];
+    if (sel && sel.army) myArmy = this._normalizeArmy(sel.army);
+    if (myArmy.length === 0 && app._lastGameStart && app._lastGameStart.armies) {
+        var myId = app.myId || app.socketId;
+        if (myId && app._lastGameStart.armies[myId]) myArmy = this._normalizeArmy(app._lastGameStart.armies[myId]);
+    }
+    if (myArmy.length === 0 && gameData && gameData.armies) {
+        var mid = app.myId || app.socketId;
+        if (mid && gameData.armies[mid]) myArmy = this._normalizeArmy(gameData.armies[mid]);
+        else {
+            // offline tek kişi -> gameData.army doğrudan
+            if (Array.isArray(gameData.army)) myArmy = this._normalizeArmy(gameData.army);
+            if (Array.isArray(gameData.myArmy)) myArmy = this._normalizeArmy(gameData.myArmy);
+        }
+    }
+    if (myArmy.length < 5) {
+        var need = 5 - myArmy.length;
+        var filler = this._pickRandomArmy([myBrawler].concat(myArmy), need);
+        myArmy = myArmy.concat(filler);
+    }
+
+    // --- Düşman ordusu ---
+    var enemyBrawler = null;
+    var enemyArmy = [];
+    if (isMulti && gameData && gameData.armies) {
+        // online: diğer socket'in army'si
+        for (var sid in gameData.armies) {
+            if (sid !== (app.myId || app.socketId)) {
+                enemyArmy = this._normalizeArmy(gameData.armies[sid]);
+                // enemy brawler'ı fullStatePayload'dan bul
+                if (app._lastGameStart && app._lastGameStart.players) {
+                    // not reliable
+                }
+                break;
+            }
+        }
+        if (enemyArmy.length === 0 && app._lastGameStart && app._lastGameStart.armies) {
+            for (var sid2 in app._lastGameStart.armies) {
+                if (sid2 !== (app.myId || app.socketId)) { enemyArmy = this._normalizeArmy(app._lastGameStart.armies[sid2]); break; }
+            }
+        }
+        // enemy brawler: server'dan gelen players bilgisi
+        if (gameData.players) {
+            for (var pi=0; pi<gameData.players.length; pi++) {
+                var pl = gameData.players[pi];
+                if (pl.team === enemyTeam) { enemyBrawler = pl.brawler; break; }
+            }
+        }
+        if (!enemyBrawler && app.enemyManager && app.enemyManager.enemies && app.enemyManager.enemies.length) {
+            enemyBrawler = app.enemyManager.enemies[0].brawlerType || app.enemyManager.enemies[0].brawler;
+        }
+    }
+    if (!enemyBrawler) {
+        // offline: rastgele lider
+        var enemyPool = this._pickRandomArmy([myBrawler].concat(myArmy), 1);
+        enemyBrawler = enemyPool[0] || 'lubu';
+    }
+    if (enemyArmy.length < 5) {
+        var needE = 5 - enemyArmy.length;
+        var fillerE = this._pickRandomArmy([enemyBrawler].concat(enemyArmy).concat(myArmy).concat([myBrawler]), needE);
+        enemyArmy = enemyArmy.concat(fillerE);
+    }
+
+    console.log('[Army] myTeam=' + myTeam + ' myBrawler=' + myBrawler + ' myArmy=' + myArmy.join(',') + ' enemyBrawler=' + enemyBrawler + ' enemyArmy=' + enemyArmy.join(',') + ' isMulti=' + isMulti);
+
+    // Düşman lider bot olarak spawn edilecek (offline) — online'da lider insan oyuncu, sadece NPC'ler bot
+    var needEnemyLeaderBot = !isMulti;
+
+    // Helper: bir orduyu spawn et
+    function spawnSquad(brawlerList, team, isMySquad) {
+        var baseSpawn = null;
+        if (gmm) {
+            // lider spawn noktası (0 index)
+            baseSpawn = gmm.getSafeSpawnPoint(team, 0);
+        } else {
+            baseSpawn = {x:0,z: team==='blue'? 50 : -50};
+        }
+        for (var oi=0; oi<brawlerList.length; oi++) {
+            var bType = brawlerList[oi];
+            var cfg = window.BrawlerConfig ? window.BrawlerConfig[bType] : null;
+            if (!cfg) continue;
+            var template = app.combatManager ? app.combatManager.getCharacterTemplate(bType) : null;
+            if (!template) continue;
+            var ent = template.clone();
+            ent.enabled = true;
+            // NPC id: army_{team}_{i}
+            ent.name = 'army_' + team + '_' + bType + '_' + oi;
+            template.parent.addChild(ent);
+            // Halka offset: lider etrafında 5'li daire
+            var angle = (oi / brawlerList.length) * Math.PI * 2;
+            var radius = 3.2 + (oi % 2) * 0.7;
+            var sx = baseSpawn.x + Math.cos(angle) * radius;
+            var sz = baseSpawn.z + Math.sin(angle) * radius;
+            var pos = gmm ? gmm._nudgeOutOfObstacles(sx, sz) : {x:sx,z:sz};
+            ent.setPosition(pos.x, 0, pos.z);
+            if (app.combatManager) app.combatManager.tintHealthAndRing(ent, team !== myTeam);
+            var animNode = self._findAnimEntity(ent) || ent;
+            var hpFill = ent.findByName('HealthFill'); if (hpFill) hpFill.enabled = false;
+            var hpBg = ent.findByName('HealthBackground'); if (hpBg) hpBg.enabled = false;
+            var botName = _getBotArenaName(bType, app);
+            var relation = (team === myTeam) ? 'ally' : 'enemy';
+            if (app.floatingUIManager) {
+                app.floatingUIManager.registerUI(ent, botName, cfg.health, relation);
+                app.floatingUIManager.updateHealth(ent, cfg.health);
+                if (app.floatingUIManager.updateGems) app.floatingUIManager.updateGems(ent, 0);
+            }
+            var botData = self._createBotData(ent, animNode, bType, cfg, self.bots.length, botName, team, oi);
+            // Army NPC'ler tam AI, hafif leash ayarı
+            botData._isArmyNPC = true;
+            botData._isRogueAlly = (team === myTeam);
+            botData.invincibleTimer = 1.0;
+            self.bots.push(botData);
+            if (app.scoreManager) app.scoreManager.registerBot(botData.id, bType, team);
+        }
+    }
+
+    // Kendi 5 NPC
+    spawnSquad(myArmy, myTeam, true);
+    // Düşman NPC'ler (her zaman 5)
+    spawnSquad(enemyArmy, enemyTeam, false);
+    // Offline ise düşman lideri de bot olarak ekle (toplam 6v6 için lider bot)
+    if (needEnemyLeaderBot) {
+        var eCfg = window.BrawlerConfig ? window.BrawlerConfig[enemyBrawler] : null;
+        if (eCfg) {
+            var eTpl = app.combatManager ? app.combatManager.getCharacterTemplate(enemyBrawler) : null;
+            if (eTpl) {
+                var eEnt = eTpl.clone();
+                eEnt.enabled = true;
+                eEnt.name = 'army_' + enemyTeam + '_leader_' + enemyBrawler;
+                eTpl.parent.addChild(eEnt);
+                var eSpawn = gmm ? gmm.getSafeSpawnPoint(enemyTeam, 0) : {x:0, z: enemyTeam==='blue'?50:-50};
+                eEnt.setPosition(eSpawn.x, 0, eSpawn.z);
+                if (app.combatManager) app.combatManager.tintHealthAndRing(eEnt, true);
+                var eAnim = self._findAnimEntity(eEnt) || eEnt;
+                var eh = eEnt.findByName('HealthFill'); if (eh) eh.enabled = false;
+                var eb = eEnt.findByName('HealthBackground'); if (eb) eb.enabled = false;
+                var eName = _getBotArenaName(enemyBrawler, app);
+                if (app.floatingUIManager) {
+                    app.floatingUIManager.registerUI(eEnt, eName, eCfg.health, 'enemy');
+                    app.floatingUIManager.updateHealth(eEnt, eCfg.health);
+                }
+                var eBot = self._createBotData(eEnt, eAnim, enemyBrawler, eCfg, self.bots.length, eName, enemyTeam, 0);
+                eBot._isArmyLeader = true;
+                eBot.invincibleTimer = 1.0;
+                self.bots.push(eBot);
+                if (app.scoreManager) app.scoreManager.registerBot(eBot.id, enemyBrawler, enemyTeam);
+            }
+        }
+    }
+    console.log('[Army] spawn done total bots=' + self.bots.length);
 };
 
 BotController.prototype._easeSlideT = function(t, power) {

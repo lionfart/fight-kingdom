@@ -1313,15 +1313,18 @@ RogueDirector.prototype._getScriptSpots = function(placement, count, distance, s
     var gmm = this.app.gameModeManager;
     var cx = gmm ? (gmm.mapCenterX || 0) : 0;
     var cz = gmm ? (gmm.mapCenterZ || 0) : 0;
+    var avg = gmm ? (gmm.arenaSx + gmm.arenaSz) / 2 : 1;
+    if (!avg || avg <= 0) avg = 1;
     var spots = [];
     var i, p;
     var D = (distance !== undefined) ? distance : 12;
     var SP = (spacing !== undefined) ? spacing : 3;
+    D *= avg; SP *= avg;
 
     if (Array.isArray(placement)) {
         for (i = 0; i < count; i++) {
             var o = placement[i % placement.length];
-            p = { x: cx + o.x, z: cz + o.z };
+            p = { x: cx + o.x * avg, z: cz + o.z * avg };
             if (gmm && gmm._nudgeOutOfObstacles) p = gmm._nudgeOutOfObstacles(p.x, p.z);
             spots.push(p);
         }
@@ -1336,6 +1339,7 @@ RogueDirector.prototype._getScriptSpots = function(placement, count, distance, s
         else if (placement === 'center')p = { x: cx + (Math.random() - 0.5) * 3, z: cz + (Math.random() - 0.5) * 3 };
         else {
             var ringR = (distance !== undefined) ? distance : 9;
+            ringR *= avg;
             var ang = (i / count) * Math.PI * 2;
             p = { x: cx + Math.cos(ang) * ringR, z: cz + Math.sin(ang) * ringR };
         }
@@ -1756,6 +1760,8 @@ RogueDirector.prototype._getEnemySpots = function(count) {
     var pveSpawns = (gmm && gmm.pveEnemySpawns && gmm.pveEnemySpawns.length > 0) ? gmm.pveEnemySpawns : null;
     var cx = gmm ? (gmm.mapCenterX || 0) : 0;
     var cz = gmm ? (gmm.mapCenterZ || 0) : 0;
+    var avg = gmm ? (gmm.arenaSx + gmm.arenaSz) / 2 : 1;
+    if (!avg || avg <= 0) avg = 1;
 
     for (var i = 0; i < count; i++) {
         var p;
@@ -1764,7 +1770,7 @@ RogueDirector.prototype._getEnemySpots = function(count) {
             p = { x: base.x + (Math.random() - 0.5) * 2.5, z: base.z + (Math.random() - 0.5) * 2.5 };
         } else {
             var ang = (i / count) * Math.PI * 2 + Math.random() * 0.6;
-            var r = 8 + Math.random() * 3;
+            var r = (8 + Math.random() * 3) * avg;
             p = { x: cx + Math.cos(ang) * r, z: cz + Math.sin(ang) * r };
         }
         if (gmm && gmm._nudgeOutOfObstacles) p = gmm._nudgeOutOfObstacles(p.x, p.z);

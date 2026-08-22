@@ -154,11 +154,12 @@ CharacterSelect.t = function (key, vars) {
 };
 
 CharacterSelect.modeLabel = function (modeId) {
-    var id = modeId || '3V3_BOUNTY';
-    if (id === '3V3_BOUNTY' || id === '3V3 BOUNTY') return CharacterSelect.t('hub.mode.bounty.title');
-    if (id === '3V3_KNOCKOUT' || id === '3V3 KNOCKOUT') return CharacterSelect.t('hub.mode.knockout.title');
+    var id = String(modeId || '3V3_BOUNTY').toUpperCase().replace(/\s+/g,'_');
+    if (id === '3V3_BOUNTY' || id === '3V3BOUNTY') return CharacterSelect.t('hub.mode.bounty.title');
+    if (id === '3V3_KNOCKOUT' || id === '3V3KNOCKOUT') return CharacterSelect.t('hub.mode.knockout.title');
     if (id === 'FFA') return CharacterSelect.t('hub.mode.ffa.title');
     if (id === 'ROGUE' || id === 'PVE_ROGUE') return CharacterSelect.t('hub.mode.rogue.title');
+    if (id === 'ARMY_6V6' || id === 'ARMY6V6' || id === 'ARMY') return CharacterSelect.t('hub.mode.army.title');
     return String(id).replace(/_/g, ' ');
 };
 
@@ -181,7 +182,15 @@ CharacterSelect.prototype.initialize = function() {
     this.selectedBrawler = 'guanyu';
     this.currentState = 'network';
     
-    this.selection = { isMultiplayer: false, brawler: 'guanyu', skinKey: '', mode: '3V3_BOUNTY', playerName: 'Player' };
+    this.selection = { isMultiplayer: false, brawler: 'guanyu', skinKey: '', mode: '3V3_BOUNTY', playerName: 'Player', army: [] };
+    this._armyDraft = [];
+    // 🌟 競技場選擇 (localStorage 持久化,套用於所有模式)
+    this.ARENA_KEYS = ['asian', 'asianLarge', 'riverside', 'armyArena'];
+    this.selection.arena = 'asian';
+    try {
+        var savedArena = localStorage.getItem('fk_arena');
+        if (this.ARENA_KEYS.indexOf(savedArena) !== -1) this.selection.arena = savedArena;
+    } catch (e2) { /* ignore */ }
     this.currentRoomId = null;
     this.isRoomHost = false;
     this._pendingRoomAction = null;
@@ -1625,12 +1634,39 @@ CharacterSelect.prototype._buildDOMUI = function() {
                             <div class="mc-title" id="mc-ffa-title">${t('hub.mode.ffa.title')}</div>
                             <div class="mc-desc" id="mc-ffa-desc">${t('hub.mode.ffa.desc')}</div>
                         </div>
+
+                        <div class="mode-slide" id="btn-mode-army">
+                            <div class="mc-bg" style="background:radial-gradient(80% 58% at 50% 30%,#b89a2a66,#2a2010 60%,#080605 100%)"></div>
+                            <div class="mc-kanji">軍</div>
+                            <span class="mc-tag" id="mc-army-tag">${t('hub.mode.army.tag')}</span>
+                            <div class="mc-title" id="mc-army-title">${t('hub.mode.army.title')}</div>
+                            <div class="mc-desc" id="mc-army-desc">${t('hub.mode.army.desc')}</div>
+                        </div>
                     </div>
                 </div>
                 <div class="cs-sheet">
                     <div class="mode-dots" id="mode-dots"></div>
                     <div class="mode-sheet-actions">
                         <button type="button" class="tk-btn cs-play" id="btn-mode-confirm">${t('hub.mode.confirm')}</button>
+                    </div>
+                    <div class="arena-deck" id="arena-deck">
+                        <div class="arena-pick-label" id="arena-label">${t('hub.arena.label')}</div>
+                        <button type="button" class="arena-card" id="btn-arena-asian">
+                            <span class="arena-card-name" id="arena-asian-name">${t('hub.arena.asian.title')}</span>
+                            <span class="arena-card-size">35×55</span>
+                        </button>
+                        <button type="button" class="arena-card" id="btn-arena-asianlarge">
+                            <span class="arena-card-name" id="arena-asianlarge-name">${t('hub.arena.asianLarge.title')}</span>
+                            <span class="arena-card-size">60×90</span>
+                        </button>
+                        <button type="button" class="arena-card" id="btn-arena-riverside">
+                            <span class="arena-card-name" id="arena-riverside-name">${t('hub.arena.riverside.title')}</span>
+                            <span class="arena-card-size">50×80</span>
+                        </button>
+                        <button type="button" class="arena-card" id="btn-arena-armyArena">
+                            <span class="arena-card-name" id="arena-armyArena-name">${t('hub.arena.armyArena.title')}</span>
+                            <span class="arena-card-size">70×110</span>
+                        </button>
                     </div>
                     <div id="room-buttons">
                         <button class="tk-btn" id="btn-show-create">${t('hub.room.create')}</button>
@@ -1759,6 +1795,10 @@ CharacterSelect.prototype._refreshHubLabels = function() {
     setTxt('mc-ffa-tag', 'hub.mode.ffa.tag');
     setTxt('mc-ffa-title', 'hub.mode.ffa.title');
     setTxt('mc-ffa-desc', 'hub.mode.ffa.desc');
+    setTxt('arena-label', 'hub.arena.label');
+    setTxt('arena-asian-name', 'hub.arena.asian.title');
+    setTxt('arena-asianlarge-name', 'hub.arena.asianLarge.title');
+    setTxt('arena-riverside-name', 'hub.arena.riverside.title');
     setTxt('btn-show-create', 'hub.room.create');
     setTxt('btn-show-join', 'hub.room.join');
     setTxt('room-code-label', 'hub.room.codeLabel');
@@ -2078,6 +2118,18 @@ CharacterSelect.prototype._bindDOMEvents = function() {
         self.selection.mode = 'FFA';
         self.showBrawlerSelection();
     };
+    var onModeArmy = function() {
+        self._pendingRoomAction = null;
+        self._pendingRoomCode = '';
+        self.selection.mode = 'ARMY_6V6';
+        // Army için önerilen arena: ArmyArena
+        if (!self.selection.arena || self.selection.arena === 'asian') {
+            self.selection.arena = 'armyArena';
+            try { localStorage.setItem('fk_arena', 'armyArena'); } catch(e){}
+            if (self._refreshArenaDeck) self._refreshArenaDeck();
+        }
+        self.showBrawlerSelection();
+    };
 
     bindButton('btn-mode-pve', onModePve);
     bindButton('btn-rogue-leaderboard', function(e) {
@@ -2110,12 +2162,25 @@ CharacterSelect.prototype._bindDOMEvents = function() {
     bindButton('btn-mode-3v3', onMode3v3);
     bindButton('btn-mode-knockout', onModeKnockout); 
     bindButton('btn-mode-ffa', onModeFfa);
+    bindButton('btn-mode-army', onModeArmy);
+
+    // 🌟 競技場選擇卡
+    var arenaKeys = this.ARENA_KEYS || ['asian', 'asianLarge', 'riverside'];
+    arenaKeys.forEach(function(key) {
+        bindButton('btn-arena-' + key, function() {
+            self.selection.arena = key;
+            try { localStorage.setItem('fk_arena', key); } catch (e2) { /* ignore */ }
+            self._refreshArenaDeck();
+        });
+    });
+    if (this._refreshArenaDeck) this._refreshArenaDeck();
 
     self._modeConfirmById = {
         'btn-mode-pve': onModePve,
         'btn-mode-3v3': onMode3v3,
         'btn-mode-knockout': onModeKnockout,
-        'btn-mode-ffa': onModeFfa
+        'btn-mode-ffa': onModeFfa,
+        'btn-mode-army': onModeArmy
     };
     bindButton('btn-mode-confirm', function() {
         var slides = self._getVisibleModeSlides();
@@ -2713,6 +2778,19 @@ CharacterSelect.prototype._onPlayButton = function() {
 };
 
 CharacterSelect.prototype.dispatchOrder = function(actionType, roomCode) {
+    // 🌟 Army draft kontrolü (5 NPC, AI only) — draft tamamlanmadan oyuna girme
+    if (this._isArmyMode() && !this._armyDraftConfirmed) {
+        var curArmy = this._normalizeArmyDraft(this.selection.army || this._armyDraft || []);
+        if (curArmy.length !== 5) {
+            // Mevcut seçimi draft'a aktar, draft ekranını aç
+            if (curArmy.length > 0) this._armyDraft = curArmy.slice();
+            this.showArmyDraft(actionType, roomCode);
+            return;
+        } else {
+            this.selection.army = curArmy.slice();
+            this._armyDraft = curArmy.slice();
+        }
+    }
     // 🌟 防護：未解鎖不能進遊戲（開解鎖流程，不再偷偷換角）
     var pm = this.app.progressionManager;
     if (pm && !pm.isUnlocked(this.selection.brawler)) {
@@ -3019,8 +3097,15 @@ CharacterSelect.prototype._showSkinUnlockConfirm = function(skinKey, name, cost)
 
 CharacterSelect.prototype._selectCharacter = function(brawlerType) {
     // 未解鎖也可 preview；能否出陣由 play 鈕／dispatchOrder 把關
+    var prevLeader = this.selection.brawler;
     this.selectedBrawler = brawlerType;
     this.selection.brawler = brawlerType;
+    // Lider değiştiyse army'den aynı tipi çıkar (lider orduda olamaz)
+    if (prevLeader !== brawlerType && this._armyDraft && this._armyDraft.length) {
+        var idx = this._armyDraft.indexOf(brawlerType);
+        if (idx !== -1) { this._armyDraft.splice(idx,1); }
+        this.selection.army = this._armyDraft.slice();
+    }
     this._refreshSkinOptions(brawlerType);
     this._refreshPreviewModel();
 
@@ -3222,6 +3307,176 @@ CharacterSelect.prototype._showTutorialFirstPrompt = function() {
     });
 };
 
+CharacterSelect.prototype._refreshArenaDeck = function() {
+    var key = this.selection.arena || 'asian';
+    var keys = this.ARENA_KEYS || ['asian', 'asianLarge', 'riverside'];
+    for (var i = 0; i < keys.length; i++) {
+        var el = document.getElementById('btn-arena-' + keys[i]);
+        if (el) el.classList.toggle('on', keys[i] === key);
+    }
+};
+
+CharacterSelect.prototype._applyArenaToGame = function() {
+    var gmm = this.app.gameModeManager;
+    if (!gmm || !gmm.setActiveMap) return;
+    var key = this.selection.arena || 'asian';
+    var name = key === 'asianLarge' ? 'AsianLarge' : key === 'riverside' ? 'Riverside' : key === 'armyArena' ? 'ArmyArena' : 'Asian';
+    var mapRoot = this.app.root.findByName('Map');
+    var ent = mapRoot ? mapRoot.findByName(name) : null;
+    if (ent) gmm.setActiveMap(ent);
+    else {
+        // Fallback: try case-insensitive search
+        if (mapRoot) {
+            var kids = mapRoot.children || [];
+            for (var i=0;i<kids.length;i++) {
+                var c = kids[i];
+                if (c && c.name && c.name.toLowerCase() === key.toLowerCase()) { gmm.setActiveMap(c); break; }
+            }
+        }
+    }
+};
+
+// ==========================================
+// 🌟 ARMY_6V6 Draft (5 NPC, AI only)
+// ==========================================
+CharacterSelect.prototype._isArmyMode = function() {
+    var m = String(this.selection.mode || '').toUpperCase().replace(/\s+/g,'_');
+    return m === 'ARMY_6V6' || m === 'ARMY6V6' || m === 'ARMY';
+};
+
+CharacterSelect.prototype._normalizeArmyDraft = function(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    for (var i=0;i<arr.length && out.length<5;i++) {
+        var v = String(arr[i]||'').toLowerCase();
+        if (window.BrawlerConfig && window.BrawlerConfig[v] && window.BrawlerConfig[v].select && out.indexOf(v)===-1 && v !== this.selection.brawler) out.push(v);
+    }
+    return out;
+};
+
+CharacterSelect.prototype.showArmyDraft = function(nextAction, roomCode) {
+    this._armyDraftNextAction = nextAction || 'matchmaking';
+    this._armyDraftNextCode = roomCode || '';
+    if (!this._armyDraft || !Array.isArray(this._armyDraft)) this._armyDraft = this._normalizeArmyDraft(this.selection.army || []);
+    // Overlay yarat (yoksa)
+    var ov = document.getElementById('army-draft-overlay');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'army-draft-overlay';
+        ov.setAttribute('data-ui-interactive','');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(8,6,5,0.92);backdrop-filter:blur(6px);';
+        ov.innerHTML = '<div class="tk-panel army-draft-panel" style="width:min(96vw,720px);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#1a140e,#0d0a08);border:1px solid #b89a2a55;border-radius:16px;padding:18px 16px;">'
+            + '<div class="tk-panel-title" style="font-size:22px;font-weight:900;color:#f0d080;text-align:center;margin-bottom:6px;">'+CharacterSelect.t('hub.army.draft.title')+'</div>'
+            + '<div style="text-align:center;color:#c8b898;font-size:13px;margin-bottom:10px;">'+CharacterSelect.t('hub.army.draft.desc')+' <span id="army-draft-count">0/5</span></div>'
+            + '<div id="army-draft-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;"></div>'
+            + '<div style="display:flex;gap:10px;margin-top:14px;">'
+            + '<button type="button" class="tk-btn tk-btn-ghost" id="btn-army-random" style="flex:1;">'+CharacterSelect.t('hub.army.random')+'</button>'
+            + '<button type="button" class="tk-btn" id="btn-army-clear" style="flex:1;background:#2a1a08;color:#f0d080;border:1px solid #b89a2a55;">'+CharacterSelect.t('hub.army.clear')+'</button>'
+            + '</div>'
+            + '<div style="display:flex;gap:10px;margin-top:10px;">'
+            + '<button type="button" class="tk-btn tk-btn-ghost" id="btn-army-cancel" style="flex:1;">'+CharacterSelect.t('hub.army.cancel')+'</button>'
+            + '<button type="button" class="tk-btn" id="btn-army-confirm" style="flex:2;background:linear-gradient(180deg,#e8c56a,#c9942e);color:#2a1a08;font-weight:900;opacity:0.5;" disabled>'+CharacterSelect.t('hub.army.confirm')+'</button>'
+            + '</div>'
+            + '<div style="text-align:center;color:#8a7f6a;font-size:11px;margin-top:8px;">'+CharacterSelect.t('hub.army.hint')+'</div>'
+            + '</div>';
+        document.body.appendChild(ov);
+        var self = this;
+        var bind = function(id,fn){ var el=document.getElementById(id); if(!el) return; if(window.UiTouch&&window.UiTouch.bindTap) window.UiTouch.bindTap(el,fn); else el.addEventListener('click',fn); };
+        bind('btn-army-random', function(){ self._randomArmyFill(); });
+        bind('btn-army-clear', function(){ self._armyDraft=[]; self._refreshArmyDraft(); });
+        bind('btn-army-cancel', function(){ ov.style.display='none'; });
+        bind('btn-army-confirm', function(){ self._confirmArmyDraft(); });
+        ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+    }
+    this._refreshArmyDraft();
+    ov.style.display='flex';
+};
+
+CharacterSelect.prototype._refreshArmyDraft = function() {
+    var grid = document.getElementById('army-draft-grid');
+    var cntEl = document.getElementById('army-draft-count');
+    var confirmBtn = document.getElementById('btn-army-confirm');
+    if (!grid) return;
+    var self = this;
+    var brawlerData = this.brawlerData || {};
+    var leader = this.selection.brawler;
+    if (cntEl) cntEl.textContent = (this._armyDraft.length) + '/5';
+    if (confirmBtn) {
+        var ready = this._armyDraft.length === 5;
+        confirmBtn.disabled = !ready;
+        confirmBtn.style.opacity = ready ? '1' : '0.5';
+        confirmBtn.style.pointerEvents = ready ? 'auto' : 'none';
+    }
+    // Grid'i yeniden kur
+    grid.innerHTML = '';
+    var order = this._rosterOrder || Object.keys(brawlerData);
+    for (var i=0;i<order.length;i++) {
+        var bType = order[i];
+        if (bType === leader) continue;
+        var meta = brawlerData[bType];
+        if (!meta) continue;
+        var isPicked = this._armyDraft.indexOf(bType) !== -1;
+        var isDisabled = !isPicked && this._armyDraft.length >=5;
+        var btn = document.createElement('button');
+        btn.type='button';
+        btn.className='army-pick-card' + (isPicked?' on':'') + (isDisabled?' disabled':'');
+        btn.setAttribute('data-btype', bType);
+        btn.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:10px;border:1px solid '+(isPicked?'#e8c56a':'#b89a2a33')+';background:'+(isPicked?'linear-gradient(180deg,#3a2e16,#1e160a)':'#1a140e')+';color:#f0d080;opacity:'+(isDisabled?'0.4':'1')+';cursor:'+(isDisabled?'not-allowed':'pointer')+';';
+        var color = meta.color || '#999';
+        btn.innerHTML='<div style="width:48px;height:48px;border-radius:50%;background:'+color+';display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:18px;">'+(meta.zh||bType).charAt(0)+'</div>'
+            +'<div style="font-size:13px;font-weight:800;">'+(meta.zh||bType)+'</div>'
+            +'<div style="font-size:10px;color:#c8b898;">'+(meta.title||'')+'</div>'
+            +'<div style="font-size:10px;color:'+(isPicked?'#6fcf7a':'#8a7f6a')+';">'+(isPicked? '✓ '+CharacterSelect.t('hub.army.picked') : CharacterSelect.t('hub.army.pick'))+'</div>';
+        if (!isDisabled) {
+            (function(bt){ btn.addEventListener('click', function(){ self._toggleArmyPick(bt); }); })(bType);
+        }
+        grid.appendChild(btn);
+    }
+};
+
+CharacterSelect.prototype._toggleArmyPick = function(bType) {
+    var idx = this._armyDraft.indexOf(bType);
+    if (idx !== -1) this._armyDraft.splice(idx,1);
+    else {
+        if (this._armyDraft.length >=5) return;
+        // lider ile aynı olamaz (zaten filtreli)
+        this._armyDraft.push(bType);
+    }
+    this._refreshArmyDraft();
+};
+
+CharacterSelect.prototype._randomArmyFill = function() {
+    var pool = [];
+    var brawlerData = this.brawlerData || {};
+    var leader = this.selection.brawler;
+    for (var k in brawlerData) { if (k!==leader) pool.push(k); }
+    for (var i=pool.length-1;i>0;i--){ var r=Math.floor(Math.random()*(i+1)); var tmp=pool[i]; pool[i]=pool[r]; pool[r]=tmp; }
+    // Mevcut draft'ı koruyup 5'e tamamla, boşsa 5 rastgele
+    var need = 5 - this._armyDraft.length;
+    for (var j=0;j<pool.length && need>0;j++) {
+        if (this._armyDraft.indexOf(pool[j])===-1) { this._armyDraft.push(pool[j]); need--; }
+    }
+    if (this._armyDraft.length <5) {
+        // fallback: sıfırdan 5
+        this._armyDraft = pool.slice(0,5);
+    }
+    this._refreshArmyDraft();
+};
+
+CharacterSelect.prototype._confirmArmyDraft = function() {
+    if (!this._armyDraft || this._armyDraft.length !==5) return;
+    this.selection.army = this._armyDraft.slice();
+    var ov = document.getElementById('army-draft-overlay');
+    if (ov) ov.style.display='none';
+    // Sonraki aksiyonu çalıştır
+    var action = this._armyDraftNextAction || 'matchmaking';
+    var code = this._armyDraftNextCode || '';
+    // dispatchOrder'u doğrudan çağır ama bu sefer draft bypass ile
+    this._armyDraftConfirmed = true;
+    this.dispatchOrder(action, code);
+    this._armyDraftConfirmed = false;
+};
+
 CharacterSelect.prototype._startGame = function() {
     if (this.uiRoot) this.uiRoot.style.display = 'none';
     var pb = document.getElementById('prog-bar');   // 🌟 進遊戲隱藏養成列
@@ -3266,6 +3521,8 @@ CharacterSelect.prototype._startGame = function() {
             this.app.networkManager._onCancelMatchmaking();
         }
     }
+    // 🌟 套用所選競技場 (AsianLarge / Riverside / Asian)
+    this._applyArenaToGame();
     this.app.fire('game:start', this.selection);
 };
 
@@ -3280,6 +3537,9 @@ CharacterSelect.prototype._onMatchmakingStatus = function(data) {
 CharacterSelect.prototype._onMatchFound = function(data) {
     if (this.currentState === 'hidden') return; 
     if (data && data.mode) this.selection.mode = data.mode; 
+    if (data && data.arena && this.ARENA_KEYS.indexOf(data.arena) !== -1) {
+        this.selection.arena = data.arena;
+    }
     
     this.matchOverlay.style.display = 'flex'; 
     this.matchText.innerHTML = CharacterSelect.t('hub.match.found');
@@ -3302,6 +3562,7 @@ CharacterSelect.prototype._onRoomCreated = function(data) {
     this._pendingRoomAction = null;
     this._pendingRoomCode = '';
     if (data.mode) this.selection.mode = data.mode;
+    if (data.arena && this.ARENA_KEYS.indexOf(data.arena) !== -1) this.selection.arena = data.arena;
 
     document.getElementById('display-room-code').innerText = data.roomId;
     document.getElementById('display-room-mode').innerText = CharacterSelect.t('hub.room.modeLabel', {
@@ -3318,6 +3579,7 @@ CharacterSelect.prototype._onRoomJoined = function(data) {
     this._pendingRoomAction = null;
     this._pendingRoomCode = '';
     if (data.mode) this.selection.mode = data.mode;
+    if (data.arena && this.ARENA_KEYS.indexOf(data.arena) !== -1) this.selection.arena = data.arena;
 
     document.getElementById('display-room-code').innerText = data.roomId;
     document.getElementById('display-room-mode').innerText = CharacterSelect.t('hub.room.modeLabel', {
